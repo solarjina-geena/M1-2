@@ -1,0 +1,3 @@
+-r requirements-core.txt
+-r requirements-firestore.txt
+-r requirements-ai.txt

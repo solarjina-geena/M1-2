@@ -1,0 +1,81 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*serviceAccount*.json
+*service-account*.json
+*firebase-admin*.json
+*firebase-key*.json
+credentials.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Private manufacturing files
+*.zip
+*.pdf
+*.hwpx
+*.xlsx
+*.xls
+sep_raw/
+raw_data/
+company_data/
+private_data/
+
+# Local database and backups
+*.db
+*.sqlite
+*.sqlite3
+*backup*
+
+# Previous extracted project
+iMEB3_AI_AGENT_ASSIGNMENT_v0.50/
+
+# Logs
+*.log
+*.tmp
+
+# Confidential recovered manufacturing data
+backend/migration/recovered_verified_v1.json
+
+# Private Firestore exports supplied for local, read-only fallback review
+firestore_import/*
+!firestore_import/README.md
+!firestore_import/.gitkeep
+
+# Local source backups
+*.local-backup
+
+# Private credentials
+secrets/
+# Private evidence datasets (keep documentation only)
+evidence/*
+!evidence/**/README*.md
+
+# Generated local frontend API configuration
+frontend/config.js
+
+# Local virtual environments, including versioned names
+.venv*/
+venv*/
+
+# Recovered/decompiled source snapshots; publish the active source only
+*.recovery
+*.restored.py
+*.pycdc.py
+*.depyo.py
+*.revive*.py
+# Internal project notes contain private paths or real manufacturing examples
+/전체흐름_그래프_규칙.md
+/IMPLEMENTATION_AUDIT.md
+/M1-2_과제진척도_*.md
+/M1-2_팀작업_쉬운규칙과_버전이력*.md
+
