@@ -8,7 +8,7 @@
 - 데이터 기반 AI 채팅: `POST /api/chat`
   - Firestore/Memory의 관련 데이터 조회
   - `/api/data/summary`와 관련 데이터 Context 주입
-  - `OPENAI_API_KEY`가 있으면 OpenAI Responses API 사용
+  - `OPENAI_API_KEY`와 Codyssey API 주소가 있으면 Codyssey Chat Completions API 사용
   - 키가 없거나 AI 호출 실패 시 Evidence 기반 fallback (없는 값 생성 금지)
   - 대화 자동 저장
 - 데이터 CRUD
@@ -77,9 +77,12 @@ FIREBASE_SERVICE_ACCOUNT_JSON={...서비스계정 JSON 전체...}
 # 또는
 FIREBASE_SERVICE_ACCOUNT_PATH=/path/to/serviceAccount.json
 OPENAI_API_KEY=...
+OPENAI_BASE_URL=https://copa.codyssey.kr/v1
 OPENAI_MODEL=gpt-6-luna
 OPENAI_MAX_OUTPUT_TOKENS=500
 ```
+
+Codyssey API를 사용하며, Python `openai` SDK의 Chat Completions 형식으로 호출합니다. `OPENAI_BASE_URL`은 Codyssey API 주소이고, 실제 호출 지점은 `backend/app/main.py`의 `codysay_answer()`입니다.
 
 Frontend / Vercel:
 
@@ -102,16 +105,17 @@ Vercel build 시 `build-config.mjs`가 환경변수를 `config.js`에 반영합�
 - Root Directory: repository root (Blueprint 사용) 또는 Backend 직접 설정 시 `backend`
 - Build: `pip install -r requirements.txt`
 - Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- 환경변수: Firebase / OpenAI / CORS 설정
+- Blueprint 생성 시 Firebase 서비스 계정 JSON, OpenAI API 키, `ALLOWED_ORIGINS`를 비밀 입력란에 설정 (`render.yaml`의 `sync: false`)
+- OpenAI 기본 주소·모델·출력 토큰 수는 Blueprint에 정의되어 있음
 
 배포 후 `https://<render-url>/docs`에서 Swagger를 확인합니다.
 무료 인스턴스 사용 시 첫 요청은 콜드스타트로 지연될 수 있습니다.
 
 ## Vercel 배포
 
-Vercel Project Root를 `frontend`로 지정합니다.
+Vercel Framework Preset을 `Other`, Project Root를 `frontend`로 지정합니다.
 환경변수 `API_BASE_URL`에 Render Backend URL을 입력합니다.
-`vercel.json`과 `npm run build`가 `config.js`를 생성합니다.
+`vercel.json`의 `npm run build`가 배포 시 `config.js`를 생성하며, 정적 산출물은 `frontend` 루트입니다.
 
 ## 제출 시 확인 화면
 

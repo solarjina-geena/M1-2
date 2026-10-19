@@ -10,9 +10,9 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
-from fastapi import (FastAPI, HTTPException, Response)
+from fastapi import (FastAPI, HTTPException, Query, Response)
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from dotenv import load_dotenv
 load_dotenv()
 app = FastAPI(title='iMEB3 Manufacturing Intelligence API', version='0.50.0')
@@ -215,7 +215,7 @@ def canonical_run_id(date: str, shift: str, sequence: int) -> str:
 
 class DataIn(BaseModel):
     date: str
-    value: float | None = None
+    value: float | None = Field(None, allow_inf_nan=False)
     memo: str = ''
     shift: Literal['D', 'N'] = 'D'
     run_sequence: int = Field(1, ge=1)
@@ -227,8 +227,18 @@ class DataIn(BaseModel):
     source_lot: str | None = None
     value_source: Literal['SOURCE_READ', 'HUMAN_VERIFIED', 'DERIVED', 'UNCERTAIN', 'BLANK'] = 'SOURCE_READ'
 
+    @field_validator('date')
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        for fmt in ('%Y-%m-%d', '%Y%m%d'):
+            try:
+                return datetime.strptime(value, fmt).date().isoformat()
+            except ValueError:
+                continue
+        raise ValueError('date는 실제 날짜인 YYYY-MM-DD 또는 YYYYMMDD 형식이어야 합니다.')
+
 class DataUpdate(BaseModel):
-    value: float | None = None
+    value: float | None = Field(None, allow_inf_nan=False)
     memo: str | None = None
     value_source: str | None = None
 
@@ -401,14 +411,15 @@ def create_data(body: DataIn):
     return put('data', id, obj)
 
 @app.get('/api/data')
-def list_data(response: Response):
+def list_data(response: Response, limit: int = Query(2000, ge=1, le=2000)):
     rows = all_docs('data')
     response.headers['X-Data-Source'] = ACTIVE_DATA_SOURCE
     if ACTIVE_DATA_SOURCE == 'csv_fallback':
         response.headers['X-Data-Source-Notice'] = 'Read-only temporary Firestore export; incomplete enrichment rows are skipped'
         response.headers['X-Data-Source-Info'] = json.dumps(_CSV_FALLBACK_INFO, separators=(',', ':'))
         response.headers['X-Data-Source-Info'] = json.dumps(_CSV_FALLBACK_INFO, separators=(',', ':'))
-    return sorted(rows, key=(lambda x: str(x.get('date') or ''), str(x.get('run_id') or ''), str(x.get('id') or '')))
+    ordered = sorted(rows, key=lambda x: (str(x.get('date') or ''), str(x.get('run_id') or ''), str(x.get('id') or '')))
+    return ordered[:limit]
 
 @app.put('/api/data/{id}')
 def update_data(id: str, body: DataUpdate):
@@ -437,7 +448,7 @@ def build_summary(rows=None):
     numeric = production or [r for r in rows if isinstance(r.get('value'), (int, float))]
     vals = [r['value'] for r in numeric]
     dates = sorted([r.get('date') for r in numeric if r.get('date')])
-    ordered = sorted(numeric, key=(lambda r: str(r.get('date') or ''), str(r.get('run_id') or '')))
+    ordered = sorted(numeric, key=lambda r: (str(r.get('date') or ''), str(r.get('run_id') or '')))
     trend = '데이터 부족'
     change_pct = None
     if len(ordered) >= 6:
@@ -677,9 +688,9 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
         summary = build_summary(rows)
     except Exception as e:
         import traceback
-        print('Codysay error type:', type(e).__name__)
-        print('Codysay error detail:', str(e)[:1000])
-        print('Codysay error location:')
+        print('Codyssey API error type:', type(e).__name__)
+        print('Codyssey API error detail:', str(e)[:1000])
+        print('Codyssey API error location:')
         for frame in traceback.extract_tb(e.__traceback__):
             if frame.filename.endswith('main.py'):
                 print('  line:', frame.lineno, '| function:', frame.name)
@@ -690,7 +701,7 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
         import time
         ai_start = time.perf_counter()
         resp = client.chat.completions.create(model=model, messages=[{'role': 'system', 'content': instructions}, {'role': 'user', 'content': message}], max_tokens=int(os.getenv('OPENAI_MAX_OUTPUT_TOKENS', '2000')))
-        print('Codysay elapsed seconds:', round(time.perf_counter() - ai_start, 2))
+        print('Codyssey API elapsed seconds:', round(time.perf_counter() - ai_start, 2))
         tool_calls = resp.choices[0].message.tool_calls or []
         if tool_calls:
             print('GPT tool calls:', len(tool_calls))
@@ -722,16 +733,16 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
             return final_answer, 'CODYSAY_FUNCTION_CALLING'
     except Exception as e:
         import traceback
-        print('Codysay error type:', type(e).__name__)
-        print('Codysay error detail:', str(e)[:1000])
-        print('Codysay error location:')
+        print('Codyssey API error type:', type(e).__name__)
+        print('Codyssey API error detail:', str(e)[:1000])
+        print('Codyssey API error location:')
         for frame in traceback.extract_tb(e.__traceback__):
             if frame.filename.endswith('main.py'):
                 print('  line:', frame.lineno, '| function:', frame.name)
         return fallback_answer(message, rows, ctx), 'FALLBACK_AI_ERROR'
     answer = resp.choices[0].message.content or ''
-    print('Codysay response length:', len(answer))
-    print('Codysay finish reason:', resp.choices[0].finish_reason)
+    print('Codyssey API response length:', len(answer))
+    print('Codyssey API finish reason:', resp.choices[0].finish_reason)
     return answer, 'CODYSAY_CHAT_COMPLETIONS'
 
 def get_manufacturing_records(date: str, variant: str, process: str) -> list[dict]:
