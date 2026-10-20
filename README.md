@@ -3,6 +3,15 @@
 기존 iMEB3 v0.48 Manufacturing Intelligence를 과제 필수 요구사항에 맞게 완성한 버전입니다.
 공개/평가 환경에서는 실제 회사 원본 대신 `POST /api/data/seed-demo`가 생성하는 **비식별 DEMO DATA 120건**을 사용합니다.
 
+## 배포 주소
+
+- 프론트엔드: [https://m1-2-frontend-dun.vercel.app](https://m1-2-frontend-dun.vercel.app)
+- 백엔드 API: [https://imeb3-ai-agent-api.onrender.com](https://imeb3-ai-agent-api.onrender.com)
+- Swagger: [https://imeb3-ai-agent-api.onrender.com/docs](https://imeb3-ai-agent-api.onrender.com/docs)
+- 관리 화면: [https://m1-2-frontend-dun.vercel.app/manage.html](https://m1-2-frontend-dun.vercel.app/manage.html)
+
+2026-10-20 Render 상태를 다시 확인해 `storage=firestore`, `configured_storage=firestore`를 확인했습니다. 목록과 요약 API도 HTTP 200 및 `X-Data-Source=firestore`를 반환했고, Firestore 전체 1,086건 중 생산량 요약 대상 250건을 읽었습니다. Codyssey 실호출은 아직 미검증이며, 현재 UI 채팅에서 확인한 응답은 `LOCAL_ONLY` Evidence 기반 fallback입니다.
+
 ## 구현 기능
 
 - 데이터 기반 AI 채팅: `POST /api/chat`

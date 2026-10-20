@@ -647,6 +647,19 @@ def process_summary_answer(rows: list[dict], ctx: dict[str, Any]) -> str:
 
 def fallback_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> str:
     if ctx.get('metric') in ('OVERVIEW', 'PRODUCTION_QTY'):
+        if (ctx.get('metric') == 'OVERVIEW' and not ctx.get('variant')
+                and not ctx.get('process') and not ctx.get('date')):
+            summary = build_summary(rows)
+            metrics = summary['metrics']
+            fmt = lambda value: f'{value:,.1f}' if isinstance(value, (int, float)) else '자료 없음'
+            return '\n'.join([
+                'Firestore 제조 데이터 요약',
+                f"전체 기록 {summary['total_records']:,}건 · 생산량 수치 기록 {summary['count']:,}건",
+                f"기간 {summary['period']}",
+                f"생산량 평균 {fmt(metrics['average'])} EA · 최소 {fmt(metrics['min'])} EA · 최대 {fmt(metrics['max'])} EA",
+                f"최근 추세 {summary['trend']}",
+                '※ 제조 공정별 생산량은 중복 합산하지 않았습니다.'
+            ])
         return process_summary_answer(rows, ctx)
     vr = ctx.get('variant')
     metric = ctx.get('metric')
