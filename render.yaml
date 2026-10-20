@@ -17,7 +17,7 @@ services:
       - key: OPENAI_BASE_URL
         value: https://copa.codyssey.kr/v1
       - key: OPENAI_MODEL
-        value: gpt-6-luna
+        value: gpt-5-mini
       - key: OPENAI_MAX_OUTPUT_TOKENS
         value: "2000"
       - key: OPENAI_REASONING_EFFORT
