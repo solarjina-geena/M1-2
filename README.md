@@ -10,7 +10,7 @@
 - Swagger: [https://imeb3-ai-agent-api.onrender.com/docs](https://imeb3-ai-agent-api.onrender.com/docs)
 - 관리 화면: [https://m1-2-frontend-dun.vercel.app/manage.html](https://m1-2-frontend-dun.vercel.app/manage.html)
 
-2026-10-20 Render 상태를 다시 확인해 `storage=firestore`, `configured_storage=firestore`를 확인했습니다. 목록과 요약 API도 HTTP 200 및 `X-Data-Source=firestore`를 반환했고, Firestore 전체 1,086건 중 생산량 요약 대상 250건을 읽었습니다. 배포 UI의 전체 요약 질문은 기간·건수·평균·최소·최대·추세를 짧게 반환하는 것을 확인했습니다. `LOCAL_ONLY`는 Render 내부 규칙 기반 Firestore 답변이며 외부 AI를 부르지 않았다는 뜻입니다. Codyssey 실호출은 아직 미검증입니다.
+2026-10-20 Render 상태를 다시 확인해 `storage=firestore`, `configured_storage=firestore`를 확인했습니다. 목록과 요약 API도 HTTP 200 및 `X-Data-Source=firestore`를 반환했고, Firestore 전체 1,086건 중 생산량 요약 대상 250건을 읽었습니다. Codyssey 분석 호출을 두 번 시도했으나 `gpt-6-luna`와 `gpt-4o-mini` 모두 Render 로그에서 `model_not_found`(404)로 거절돼 Firestore 근거 답변으로 대체됐습니다. 현재 Render 값은 `gpt-4o-mini`이며, 이 키/엔드포인트에서 사용 가능한 모델 ID를 확인하지 못해 외부 AI 분석 성공은 미검증입니다.
 
 ## 구현 기능
 
@@ -87,8 +87,9 @@ FIREBASE_SERVICE_ACCOUNT_JSON={...서비스계정 JSON 전체...}
 FIREBASE_SERVICE_ACCOUNT_PATH=/path/to/serviceAccount.json
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://copa.codyssey.kr/v1
-OPENAI_MODEL=gpt-6-luna
-OPENAI_MAX_OUTPUT_TOKENS=500
+OPENAI_MODEL=gpt-5-mini
+OPENAI_MAX_OUTPUT_TOKENS=2000
+OPENAI_REASONING_EFFORT=low
 ```
 
 Codyssey API를 사용하며, Python `openai` SDK의 Chat Completions 형식으로 호출합니다. `OPENAI_BASE_URL`은 Codyssey API 주소이고, 실제 호출 지점은 `backend/app/main.py`의 `codysay_answer()`입니다.

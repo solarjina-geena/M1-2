@@ -273,7 +273,7 @@ function applyQuestionGraphScope(q){const u=q.toUpperCase(),vm=u.match(/\b(HSV|O
     const r=await fetch(API_BASE+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,conversation_id:current.serverId||null,context:{product:'iMEB3',variant,process:'INJECTION'}})});
     if(!r.ok){let detail='';try{detail=JSON.stringify(await r.json())}catch(_){detail=await r.text()}throw new Error('CHAT_HTTP_'+r.status+' '+detail)}
     const o=await r.json(); current.serverId=o.conversation_id; applyApiContext(o.graph_context||{}); if(o.lot_graph && ['firestore','csv_fallback'].includes(o.lot_graph.storage) && o.lot_graph.read_only===true && !(/(?:20\\d{2}[-/.])?\\d{1,2}[/.-]\\d{1,2}/.test(q)&&/\\b(IV|OV|HSV)\\b/i.test(q))) saveLotGraph(o.lot_graph);
-    const providerLabels={LOCAL_ONLY:'Firestore 근거 요약 · 외부 AI 미호출',CODYSAY_CHAT_COMPLETIONS:'Codyssey AI 추가 분석',CODYSAY_FUNCTION_CALLING:'Codyssey AI 추가 분석',FALLBACK_NO_KEY:'규칙 기반 답변 · AI 키 미설정',FALLBACK_AI_ERROR:'규칙 기반 답변 · AI 호출 오류'};
+    const providerLabels={LOCAL_ONLY:'Firestore 근거 요약 · 외부 AI 미호출',CODYSAY_CHAT_COMPLETIONS:'Codyssey AI 추가 분석',CODYSAY_FUNCTION_CALLING:'Codyssey AI 추가 분석',FALLBACK_NO_KEY:'규칙 기반 답변 · AI 키 미설정',FALLBACK_AI_ERROR:'규칙 기반 답변 · AI 호출 오류',FALLBACK_EMPTY_ANSWER:'규칙 기반 답변 · AI 응답이 비어 있음',FALLBACK_EMPTY_TOOL_ANSWER:'규칙 기반 답변 · AI 도구 응답이 비어 있음'};
     return o.answer+`<small>Backend 연결 · ${o.storage||hs.storage||'memory'} · 응답 방식 ${providerLabels[o.ai_provider]||o.ai_provider||'확인 필요'}</small>`;
   }catch(e){
     const msg=String(e&&e.message||e);
