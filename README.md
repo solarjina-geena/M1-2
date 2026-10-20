@@ -10,7 +10,7 @@
 - Swagger: [https://imeb3-ai-agent-api.onrender.com/docs](https://imeb3-ai-agent-api.onrender.com/docs)
 - 관리 화면: [https://m1-2-frontend-dun.vercel.app/manage.html](https://m1-2-frontend-dun.vercel.app/manage.html)
 
-2026-10-20 Render 상태를 다시 확인해 `storage=firestore`, `configured_storage=firestore`를 확인했습니다. 목록과 요약 API도 HTTP 200 및 `X-Data-Source=firestore`를 반환했고, Firestore 전체 1,086건 중 생산량 요약 대상 250건을 읽었습니다. Codyssey 실호출은 아직 미검증이며, 현재 UI 채팅에서 확인한 응답은 `LOCAL_ONLY` Evidence 기반 fallback입니다.
+2026-10-20 Render 상태를 다시 확인해 `storage=firestore`, `configured_storage=firestore`를 확인했습니다. 목록과 요약 API도 HTTP 200 및 `X-Data-Source=firestore`를 반환했고, Firestore 전체 1,086건 중 생산량 요약 대상 250건을 읽었습니다. 배포 UI의 전체 요약 질문은 기간·건수·평균·최소·최대·추세를 짧게 반환하는 것을 확인했습니다. `LOCAL_ONLY`는 Render 내부 규칙 기반 Firestore 답변이며 외부 AI를 부르지 않았다는 뜻입니다. Codyssey 실호출은 아직 미검증입니다.
 
 ## 구현 기능
 
