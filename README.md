@@ -88,9 +88,10 @@ FIREBASE_SERVICE_ACCOUNT_PATH=/path/to/serviceAccount.json
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://copa.codyssey.kr/v1
 OPENAI_MODEL=gpt-5-mini
-OPENAI_MAX_OUTPUT_TOKENS=2000
-OPENAI_REASONING_EFFORT=low
+OPENAI_MAX_OUTPUT_TOKENS=500
 ```
+
+`OPENAI_MAX_OUTPUT_TOKENS`는 Codyssey Chat Completions 요청의 `max_completion_tokens`에 대응합니다. 추론 토큰을 사용하는 모델에서는 추론 토큰과 답변 토큰을 합쳐 이 한도를 사용하므로, 500으로 낮추면 답변이 잘릴 수 있습니다. 모델 응답의 `finish_reason`이 `length`인지 확인해 적정 값을 평가합니다.
 
 Codyssey API를 사용하며, Python `openai` SDK의 Chat Completions 형식으로 호출합니다. `OPENAI_BASE_URL`은 Codyssey API 주소이고, 실제 호출 지점은 `backend/app/main.py`의 `codysay_answer()`입니다.
 

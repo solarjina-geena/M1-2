@@ -699,7 +699,6 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
         client = OpenAI(api_key=key, base_url=base_url)
         model = os.getenv('OPENAI_MODEL', 'gpt-5-mini')
         max_completion_tokens = int(os.getenv('OPENAI_MAX_OUTPUT_TOKENS', '2000'))
-        reasoning_effort = os.getenv('OPENAI_REASONING_EFFORT', 'low').strip()
         summary = build_summary(rows)
     except Exception as e:
         import traceback
@@ -715,7 +714,7 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
         instructions = SYSTEM + '\n\n[사용자 데이터 요약]\n' + json.dumps(summary, ensure_ascii=False) + '\n\n[질문 관련 DATA]\n' + json.dumps(evidence, ensure_ascii=False) + '\nHUMAN_VERIFIED, SOURCE_READ, DERIVED 등 내부 상태명은 출력하지 마라. 사람 확인값은 ✓, 계산값은 ≈로 표시하고, 기존 조회 수치는 반복하지 마라.' + '\n기존 제조 데이터 조회 결과를 반복하지 말고 추가 분석만 작성하라.' + '\n분석은 최대 3문장, 250자 이내로 작성하라.' + '\n내부 레코드 ID, run_id, 영문 필드명은 출력하지 마라.' + '\n원본 수치와 계산값을 구분하고, 근거 없는 원인이나 불량률은 추정하지 마라.' + '\nBA와 CA는 연속 공정이므로 생산수량을 합산하여 총생산량이라고 표현하지 마라.' + '\n서로 다른 공정의 불량수량을 합산하여 전체 불량률을 계산하지 마라. 공정별 수량 차이는 재공품 및 공정 흐름 확인 없이 손실로 단정하지 마라.'
         import time
         ai_start = time.perf_counter()
-        resp = client.chat.completions.create(model=model, messages=[{'role': 'system', 'content': instructions}, {'role': 'user', 'content': message}], max_completion_tokens=max_completion_tokens, reasoning_effort=reasoning_effort)
+        resp = client.chat.completions.create(model=model, messages=[{'role': 'system', 'content': instructions}, {'role': 'user', 'content': message}], max_completion_tokens=max_completion_tokens)
         print('Codyssey API elapsed seconds:', round(time.perf_counter() - ai_start, 2))
         tool_calls = resp.choices[0].message.tool_calls or []
         if tool_calls:
@@ -741,7 +740,7 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
                 safe_result = [{'date': r.get('date'), 'variant': r.get('variant'), 'process': r.get('process'), 'metric': r.get('metric'), 'value': r.get('value'), 'unit': r.get('unit'), 'value_source': r.get('value_source')} for r in result[:40]]
                 tool_messages.append({'role': 'tool', 'tool_call_id': call.id, 'content': json.dumps(safe_result, ensure_ascii=False, default=str)})
                 continue
-            final_resp = client.chat.completions.create(model=model, messages=tool_messages, max_completion_tokens=max_completion_tokens, reasoning_effort=reasoning_effort)
+            final_resp = client.chat.completions.create(model=model, messages=tool_messages, max_completion_tokens=max_completion_tokens)
             final_answer = (final_resp.choices[0].message.content or '').strip()
             if not final_answer:
                 return ('', 'FALLBACK_EMPTY_TOOL_ANSWER')
