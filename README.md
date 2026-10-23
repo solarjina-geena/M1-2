@@ -10,7 +10,7 @@
 - Swagger: [https://imeb3-ai-agent-api.onrender.com/docs](https://imeb3-ai-agent-api.onrender.com/docs)
 - 관리 화면: [https://m1-2-frontend-dun.vercel.app/manage.html](https://m1-2-frontend-dun.vercel.app/manage.html)
 
-2026-10-20 Render 상태를 다시 확인해 `storage=firestore`, `configured_storage=firestore`를 확인했습니다. 목록과 요약 API도 HTTP 200 및 `X-Data-Source=firestore`를 반환했고, Firestore 전체 1,086건 중 생산량 요약 대상 250건을 읽었습니다. Codyssey 분석 호출을 두 번 시도했으나 `gpt-6-luna`와 `gpt-4o-mini` 모두 Render 로그에서 `model_not_found`(404)로 거절돼 Firestore 근거 답변으로 대체됐습니다. 현재 Render 값은 `gpt-4o-mini`이며, 이 키/엔드포인트에서 사용 가능한 모델 ID를 확인하지 못해 외부 AI 분석 성공은 미검증입니다.
+2026-10-23 배포 검증에서 Render `/api/health`는 `storage=firestore`, `configured_storage=firestore`를 반환했습니다. 데이터 API는 Firestore 전체 1,086건과 생산량 요약 대상 250건을 읽었고, Vercel 관리 화면에서 요약과 저장된 대화 재조회, Codyssey 추가 분석 응답을 확인했습니다. 임시 Firestore CRUD 자료는 삭제해 전체 1,086건으로 복구했습니다. 출력 토큰 한도는 앱 프롬프트에서 500일 때 응답이 `finish_reason=length`로 잘려 2,000으로 설정되어 있습니다. 과거 모델 오류 기록은 2026-10-20 점검 당시의 결과이며 현재 성공 호출 결과와 구분해 읽어야 합니다.
 
 ## 구현 기능
 

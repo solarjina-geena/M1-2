@@ -3,7 +3,7 @@ body{font-family:Arial,"Noto Sans KR",sans-serif;margin:0;background:#f2f4f6;col
 <nav><div><b>iMEB3 AI Agent · 과제 기능 검증</b><div style="font-size:12px;color:#68737d">Firestore CRUD · Summary · Conversation</div></div><a href="./index.html">← AI Dashboard</a></nav>
 <section class="card"><div class="row"><button id="seed">평가용 120건 DATA 생성</button><button id="refresh">새로고침</button><span id="status"></span></div></section>
 <section class="card"><h3>데이터 요약</h3><div id="summary" class="summary"></div></section>
-<div class="grid"><section class="card"><h3>데이터 CRUD</h3><form id="form" class="row"><input id="date" type="date" required><input id="value" type="number" step="any" placeholder="value (빈칸=BLANK)"><input id="memo" placeholder="memo"><select id="variant"><option>IV</option><option>OV</option><option>HSV</option></select><button>추가</button></form><div class="scroll"><table><thead><tr><th>date</th><th>variant</th><th>value</th><th>memo</th><th></th></tr></thead><tbody id="data"></tbody></table></div></section>
+<div class="grid"><section class="card"><h3>데이터 CRUD</h3><form id="form" class="row"><input id="date" type="date" required><input id="value" type="number" step="any" placeholder="value (빈칸=BLANK)"><input id="memo" placeholder="memo"><select id="variant"><option>IV</option><option>OV</option><option>HSV</option></select><button>추가</button></form><form id="editForm" class="row" hidden><input id="editValue" type="number" step="any" placeholder="수정할 value (빈칸=BLANK)"><input id="editMemo" placeholder="수정할 memo"><button type="submit">수정 저장</button><button type="button" id="cancelEdit">취소</button></form><div class="scroll"><table><thead><tr><th>date</th><th>variant</th><th>value</th><th>memo</th><th></th></tr></thead><tbody id="data"></tbody></table></div></section>
 <section class="card"><h3>대화 기록</h3><div class="grid"><div id="convs" class="scroll"></div><div id="messages" class="messages">대화를 선택하세요.</div></div></section></div>
 <script src="./config.js"></script><script>
 const A=(window.API_BASE_URL||'http://127.0.0.1:8000').replace(/\/$/,''); const $=s=>document.querySelector(s); async function j(url,opt){let r=await fetch(A+url,opt);if(!r.ok)throw Error(await r.text());return r.json()}
@@ -36,14 +36,11 @@ async function load(){
     $('#status').textContent='Backend 연결됨';
   }catch(e){$('#status').textContent='오류: '+e.message}
 }
-async function editData(id,currentValue,currentMemo){
-  const value=prompt('수정할 value를 입력하세요. 빈칸은 BLANK입니다.',currentValue==null||currentValue==='null'?'':currentValue);
-  if(value===null)return;
-
-  const memo=prompt('수정할 memo를 입력하세요.',currentMemo);
-  if(memo===null)return;
-
-  await j('/api/data/'+id,{
+let editingId=null;
+function editData(id,currentValue,currentMemo){
+  editingId=id; $('#editValue').value=currentValue==null||currentValue==='null'?'':currentValue; $('#editMemo').value=currentMemo; $('#editForm').hidden=false; $('#editValue').focus();
+}
+$('#editForm').onsubmit=async e=>{e.preventDefault();if(!editingId)return;const value=$('#editValue').value;const memo=$('#editMemo').value;await j('/api/data/'+editingId,{
     method:'PUT',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
@@ -51,9 +48,9 @@ async function editData(id,currentValue,currentMemo){
       memo:memo
     })
   });
-
-  load();
-}
+  editingId=null;$('#editForm').hidden=true;load();
+};
+$('#cancelEdit').onclick=()=>{editingId=null;$('#editForm').hidden=true};
 async function delData(id){await j('/api/data/'+id,{method:'DELETE'});load()}
 async function delConv(id){
   if(!confirm('이 대화를 삭제할까요?')) return;
