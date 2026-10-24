@@ -20,3 +20,5 @@ services:
         value: gpt-5-mini
       - key: OPENAI_MAX_OUTPUT_TOKENS
         value: "2000"
+      - key: DAILY_BACKUP_RETENTION_DAYS
+        value: "7"

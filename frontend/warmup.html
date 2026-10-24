@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iMEB3 Render 사전 준비</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#17202a;background:#f3f6fa}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;box-sizing:border-box}
+    main{width:min(680px,100%);background:white;border:1px solid #dce3eb;border-radius:18px;padding:28px;box-shadow:0 14px 40px #14253a14}
+    h1{font-size:1.55rem;margin:0 0 8px}p{line-height:1.6;color:#526171}.status{padding:16px;border-radius:12px;background:#eef4fb;margin:20px 0;white-space:pre-wrap;line-height:1.6;min-height:52px}
+    button{border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;background:#155eef;color:#fff;margin:4px 8px 4px 0}button.secondary{background:#e8edf4;color:#243447}button:disabled{opacity:.45;cursor:not-allowed}
+    small{display:block;color:#657487;margin-top:18px;line-height:1.55}.ok{background:#e8f7ed;color:#14532d}.warn{background:#fff5df;color:#7a4b00}.bad{background:#fff0f0;color:#842029}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>시연 전 Render 서버 준비</h1>
+    <p>Render 무료 서비스는 일정 시간 요청이 없으면 잠들 수 있습니다. 시연 약 1분 전에 이 페이지를 열어 서버를 미리 깨워 주세요.</p>
+    <div id="status" class="status" role="status" aria-live="polite">Render 서버에 연결 중입니다…</div>
+    <button id="wake" class="secondary" type="button">서버 깨우기 다시 시작</button>
+    <button id="prepare" type="button" disabled>Firestore 조회와 오늘 백업 준비</button>
+    <small>서버 준비 확인은 `/api/health`만 호출합니다. 두 번째 버튼을 누르면 Firestore 요약을 한 번 읽고, 오늘 백업이 없으면 `daily_backups`에 데이터 스냅샷을 저장합니다. Firestore 한도가 초과된 상태에서는 백업이 완료되지 않으며, 기존 자료를 수정·삭제하지 않습니다.</small>
+  </main>
+  <script src="./config.js"></script>
+  <script>
+    const API=(window.API_BASE_URL||'https://imeb3-ai-agent-api.onrender.com').replace(/\/$/,'');
+    const statusBox=document.querySelector('#status');
+    const prepareButton=document.querySelector('#prepare');
+    const wakeButton=document.querySelector('#wake');
+    let timer=null, startedAt=0, attempts=0;
+    function show(message,kind=''){statusBox.textContent=message;statusBox.className='status '+kind}
+    async function checkHealth(){
+      clearTimeout(timer);
+      attempts++;
+      const elapsed=Math.round((Date.now()-startedAt)/1000);
+      show(`Render를 깨우는 중… (${elapsed}초, ${attempts}회 확인)`);
+      try{
+        const controller=new AbortController();
+        const timeout=setTimeout(()=>controller.abort(),12000);
+        const response=await fetch(`${API}/api/health?warmup=${Date.now()}`,{cache:'no-store',signal:controller.signal});
+        clearTimeout(timeout);
+        const health=await response.json();
+        if(response.ok&&health.ok){
+          prepareButton.disabled=false;
+          const backup=health.daily_backup||{};
+          const backupText=backup.status==='complete'?`\n오늘 백업: 완료 (${backup.date})`:'\n오늘 백업: 아직 확인 전';
+          show(`백엔드 준비 완료 · 저장소 ${health.storage} · ${elapsed}초 대기${backupText}\nFirestore 자료 조회와 백업을 준비하려면 아래 버튼을 누르세요.`, 'ok');
+          return;
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }catch(error){
+        if(elapsed>=150){show(`서버 응답 대기 시간이 길어졌습니다. Render 상태를 확인하고 다시 눌러 주세요.\n${error.message}`,'bad');return}
+        show(`Render 인스턴스 기동 대기 중… ${elapsed}초\n첫 기동은 최대 약 1분 걸릴 수 있습니다.`,'warn');
+        timer=setTimeout(checkHealth,6000);
+      }
+    }
+    function startWake(){clearTimeout(timer);startedAt=Date.now();attempts=0;prepareButton.disabled=true;checkHealth()}
+    wakeButton.addEventListener('click',startWake);
+    prepareButton.addEventListener('click',async()=>{
+      prepareButton.disabled=true;
+      show('Firestore 요약 조회와 오늘 백업을 진행 중입니다. 데이터 건수에 따라 잠시 걸릴 수 있습니다.');
+      try{
+        const response=await fetch(`${API}/api/data/summary?warmup=${Date.now()}`,{cache:'no-store'});
+        const result=await response.json();
+        if(!response.ok)throw new Error(result.detail||`HTTP ${response.status}`);
+        const health=await fetch(`${API}/api/health?warmup=${Date.now()}`,{cache:'no-store'}).then(r=>r.json());
+        const backup=health.daily_backup||{};
+        if(backup.status==='complete'){
+          show(`Firestore 연결 완료 · 전체 ${result.total_records}건 · 생산량 요약 ${result.count}건\n오늘 백업 완료 · ${backup.date} · 최근 ${backup.retention_days}일 보관`,'ok');
+        }else{
+          show(`Firestore 조회 완료 · 전체 ${result.total_records}건 · 생산량 요약 ${result.count}건\n오늘 백업 상태: ${backup.status||'확인 필요'} · Render 로그와 health 상태를 확인하세요.`,'warn');
+        }
+      }catch(error){
+        show(`Firestore 준비 실패: ${error.message}\nFirestore 할당량 또는 연결을 확인하세요. 백업은 성공으로 간주하지 않았습니다.`,'bad');
+      }finally{prepareButton.disabled=false}
+    });
+    startWake();
+  </script>
+</body>
+</html>

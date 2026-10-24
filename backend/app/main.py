@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import json
 import os
 import re
@@ -43,6 +44,10 @@ _READ_CACHE_TTL_SECONDS = 60
 _READ_CACHE = {}
 _READ_CACHE_LOCK = threading.Lock()
 _FIRESTORE_READ_BACKOFF_UNTIL = 0.0
+_DAILY_BACKUP_RETENTION_DAYS = max(2, int(os.getenv('DAILY_BACKUP_RETENTION_DAYS', '7')))
+_DAILY_BACKUP_LOCK = threading.Lock()
+_DAILY_BACKUP_DATE = None
+_DAILY_BACKUP_STATUS = 'not_run'
 SEED = [{'id': 'DEMO-RUN-1', 'date': '2026-01-01', 'run_id': '20260101D01', 'shift': 'D', 'run_sequence': 1, 'product': 'iMEB3-DEMO', 'variant': 'DEMO', 'process': 'ASSEMBLY', 'metric': 'PRODUCTION_QTY', 'value': 11137, 'unit': 'EA', 'value_source': 'DERIVED', 'verification_status': 'DEMO_DATA'}, {'id': 'DEMO-RUN-2', 'date': '2026-01-02', 'run_id': '20260102D01', 'shift': 'D', 'run_sequence': 1, 'product': 'iMEB3-DEMO', 'variant': 'DEMO', 'process': 'ASSEMBLY', 'metric': 'PRODUCTION_QTY', 'value': 11274, 'unit': 'EA', 'value_source': 'DERIVED', 'verification_status': 'DEMO_DATA'}, {'id': 'DEMO-RUN-3', 'date': '2026-01-03', 'run_id': '20260103D01', 'shift': 'D', 'run_sequence': 1, 'product': 'iMEB3-DEMO', 'variant': 'DEMO', 'process': 'ASSEMBLY', 'metric': 'PRODUCTION_QTY', 'value': 11411, 'unit': 'EA', 'value_source': 'DERIVED', 'verification_status': 'DEMO_DATA'}, {'id': 'DEMO-RUN-4', 'date': '2026-01-04', 'run_id': '20260104D01', 'shift': 'D', 'run_sequence': 1, 'product': 'iMEB3-DEMO', 'variant': 'DEMO', 'process': 'ASSEMBLY', 'metric': 'PRODUCTION_QTY', 'value': 11548, 'unit': 'EA', 'value_source': 'DERIVED', 'verification_status': 'DEMO_DATA'}, {'id': 'DEMO-RUN-5', 'date': '2026-01-05', 'run_id': '20260105D01', 'shift': 'D', 'run_sequence': 1, 'product': 'iMEB3-DEMO', 'variant': 'DEMO', 'process': 'ASSEMBLY', 'metric': 'PRODUCTION_QTY', 'value': 11685, 'unit': 'EA', 'value_source': 'DERIVED', 'verification_status': 'DEMO_DATA'}, {'id': 'DEMO-RUN-6', 'date': '2026-01-06', 'run_id': '20260106D01', 'shift': 'D', 'run_sequence': 1, 'product': 'iMEB3-DEMO', 'variant': 'DEMO', 'process': 'ASSEMBLY', 'metric': 'PRODUCTION_QTY', 'value': 11822, 'unit': 'EA', 'value_source': 'DERIVED', 'verification_status': 'DEMO_DATA'}, {'id': 'DEMO-RUN-7', 'date': '2026-01-07', 'run_id': '20260107D01', 'shift': 'D', 'run_sequence': 1, 'product': 'iMEB3-DEMO', 'variant': 'DEMO', 'process': 'ASSEMBLY', 'metric': 'PRODUCTION_QTY', 'value': 11959, 'unit': 'EA', 'value_source': 'DERIVED', 'verification_status': 'DEMO_DATA'}, {'id': 'DEMO-RUN-8', 'date': '2026-01-08', 'run_id': '20260108D01', 'shift': 'D', 'run_sequence': 1, 'product': 'iMEB3-DEMO', 'variant': 'DEMO', 'process': 'ASSEMBLY', 'metric': 'PRODUCTION_QTY', 'value': 12096, 'unit': 'EA', 'value_source': 'DERIVED', 'verification_status': 'DEMO_DATA'}, {'id': 'DEMO-RUN-9', 'date': '2026-01-09', 'run_id': '20260109D01', 'shift': 'D', 'run_sequence': 1, 'product': 'iMEB3-DEMO', 'variant': 'DEMO', 'process': 'ASSEMBLY', 'metric': 'PRODUCTION_QTY', 'value': 12233, 'unit': 'EA', 'value_source': 'DERIVED', 'verification_status': 'DEMO_DATA'}]
 if DB_MODE == 'memory':
     for _r in SEED:
@@ -192,6 +197,94 @@ def all_docs(col):
         _READ_CACHE[col] = time.monotonic() + _READ_CACHE_TTL_SECONDS, rows
         return [dict(row) for row in rows]
     return list(MEM[col].values())
+
+def maybe_create_daily_backup(rows):
+    '''Persist one idempotent daily copy of Firestore data in Firestore itself.'''
+    global _DAILY_BACKUP_DATE, _DAILY_BACKUP_STATUS
+    if DB_MODE != 'firestore' or ACTIVE_DATA_SOURCE != 'firestore':
+        return
+    backup_day = datetime.now(timezone.utc).date().isoformat()
+    if _DAILY_BACKUP_DATE == backup_day:
+        return
+    if not _DAILY_BACKUP_LOCK.acquire(blocking=False):
+        return
+    try:
+        if _DAILY_BACKUP_DATE == backup_day:
+            return
+        backup_root = firestore_db.collection('daily_backups')
+        day_ref = backup_root.document(backup_day)
+        prior = day_ref.get()
+        prior_data = (prior.to_dict() or {}) if prior.exists else {}
+        if prior.exists and prior_data.get('status') == 'complete':
+            _DAILY_BACKUP_DATE = backup_day
+            _DAILY_BACKUP_STATUS = 'complete'
+            return
+
+        if prior.exists:
+            # Remove an incomplete prior attempt so stale partial rows cannot
+            # leak into the retried snapshot for the same date.
+            partial_docs = day_ref.collection('data').stream(timeout=15, retry=None)
+            cleanup_batch = firestore_db.batch()
+            cleanup_count = 0
+            for partial_doc in partial_docs:
+                cleanup_batch.delete(partial_doc.reference)
+                cleanup_count += 1
+                if cleanup_count == 400:
+                    cleanup_batch.commit()
+                    cleanup_batch = firestore_db.batch()
+                    cleanup_count = 0
+            if cleanup_count:
+                cleanup_batch.commit()
+
+        _DAILY_BACKUP_STATUS = 'writing'
+        day_ref.set({'backup_date': backup_day, 'status': 'writing', 'started_at': now()}, merge=True)
+        batch = firestore_db.batch()
+        pending = 0
+        for row in rows:
+            source_id = str(row.get('id') or json.dumps(row, sort_keys=True, default=str))
+            backup_id = hashlib.sha256(source_id.encode('utf-8')).hexdigest()
+            backup_ref = day_ref.collection('data').document(backup_id)
+            batch.set(backup_ref, {'source_id': source_id, 'snapshot_date': backup_day, 'record': row})
+            pending += 1
+            if pending == 400:
+                batch.commit()
+                batch = firestore_db.batch()
+                pending = 0
+        if pending:
+            batch.commit()
+        day_ref.set({'backup_date': backup_day, 'status': 'complete',
+                     'record_count': len(rows), 'completed_at': now()}, merge=True)
+        _DAILY_BACKUP_DATE = backup_day
+        _DAILY_BACKUP_STATUS = 'complete'
+        print('Firestore daily data backup complete:', backup_day, 'records:', len(rows))
+
+        # Keep a rolling week of snapshots to bound storage. A cleanup failure
+        # does not invalidate today's already completed backup.
+        try:
+            from datetime import date, timedelta
+            cutoff = (date.fromisoformat(backup_day) - timedelta(days=_DAILY_BACKUP_RETENTION_DAYS - 1)).isoformat()
+            expired = backup_root.where('backup_date', '<', cutoff).stream(timeout=15, retry=None)
+            for old_day in expired:
+                old_data = old_day.reference.collection('data').stream(timeout=15, retry=None)
+                delete_batch = firestore_db.batch()
+                deleted = 0
+                for old_doc in old_data:
+                    delete_batch.delete(old_doc.reference)
+                    deleted += 1
+                    if deleted == 400:
+                        delete_batch.commit()
+                        delete_batch = firestore_db.batch()
+                        deleted = 0
+                if deleted:
+                    delete_batch.commit()
+                old_day.reference.delete()
+        except Exception as exc:
+            print('Firestore daily backup retention cleanup failed:', type(exc).__name__)
+    except Exception as exc:
+        _DAILY_BACKUP_STATUS = 'failed'
+        print('Firestore daily data backup failed:', type(exc).__name__)
+    finally:
+        _DAILY_BACKUP_LOCK.release()
 
 def delete(col, id):
     if DB_MODE == 'firestore':
@@ -399,7 +492,9 @@ def workbook_evidence():
 def health():
     return {'ok': True, 'storage': ACTIVE_DATA_SOURCE, 'configured_storage': DB_MODE,
             'csv_fallback': ACTIVE_DATA_SOURCE == 'csv_fallback',
-            'csv_fallback_info': _CSV_FALLBACK_INFO if ACTIVE_DATA_SOURCE == 'csv_fallback' else None}
+            'csv_fallback_info': _CSV_FALLBACK_INFO if ACTIVE_DATA_SOURCE == 'csv_fallback' else None,
+            'daily_backup': {'enabled': DB_MODE == 'firestore', 'status': _DAILY_BACKUP_STATUS,
+                             'date': _DAILY_BACKUP_DATE, 'retention_days': _DAILY_BACKUP_RETENTION_DAYS}}
 
 @app.post('/api/data')
 def create_data(body: DataIn):
@@ -418,6 +513,7 @@ def list_data(response: Response, limit: int = Query(2000, ge=1, le=2000)):
         response.headers['X-Data-Source-Notice'] = 'Read-only temporary Firestore export; incomplete enrichment rows are skipped'
         response.headers['X-Data-Source-Info'] = json.dumps(_CSV_FALLBACK_INFO, separators=(',', ':'))
         response.headers['X-Data-Source-Info'] = json.dumps(_CSV_FALLBACK_INFO, separators=(',', ':'))
+    maybe_create_daily_backup(rows)
     ordered = sorted(rows, key=lambda x: (str(x.get('date') or ''), str(x.get('run_id') or ''), str(x.get('id') or '')))
     return ordered[:limit]
 
@@ -464,6 +560,7 @@ def build_summary(rows=None):
 def summary(response: Response):
     rows = all_docs('data')
     response.headers['X-Data-Source'] = ACTIVE_DATA_SOURCE
+    maybe_create_daily_backup(rows)
     if ACTIVE_DATA_SOURCE == 'csv_fallback':
         response.headers['X-Data-Source-Info'] = json.dumps(_CSV_FALLBACK_INFO, separators=(',', ':'))
     return build_summary(rows)
@@ -776,6 +873,7 @@ def get_manufacturing_records(date: str, variant: str, process: str) -> list[dic
 def chat(body: ChatIn):
     ctx = infer_graph_context(body.message, body.context)
     all_rows = all_docs('data')
+    maybe_create_daily_backup(all_rows)
     workbook = load_workbook_evidence()
     if workbook.get('available'):
         all_rows = all_rows + workbook.get('production', []) + workbook.get('inspection_lots', [])
