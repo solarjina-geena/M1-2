@@ -9,11 +9,11 @@
 - 백엔드 API: [https://imeb3-ai-agent-api.onrender.com](https://imeb3-ai-agent-api.onrender.com)
 - Swagger: [https://imeb3-ai-agent-api.onrender.com/docs](https://imeb3-ai-agent-api.onrender.com/docs)
 - 관리 화면: [https://m1-2-frontend-dun.vercel.app/manage.html](https://m1-2-frontend-dun.vercel.app/manage.html)
-- 시연 전 Render 사전 준비 페이지: `frontend/warmup.html` (다음 Vercel 배포 이후 `https://m1-2-frontend-dun.vercel.app/warmup.html`)
+- 시연 전 Render 사전 준비 페이지: [https://m1-2-frontend-dun.vercel.app/warmup](https://m1-2-frontend-dun.vercel.app/warmup)
 
 2026-10-24 Firebase Console에서 Firestore “일일 사용량 한도를 초과했습니다” 상태를 확인했습니다. 이후 브라우저 실호출에서 Render health는 `storage=firestore`로 정상 응답했고 Swagger도 열렸지만, `/api/data/summary`는 “Firestore 조회가 제한됐고 지정된 CSV 임시자료를 찾을 수 없습니다”라는 앱 오류를 반환했습니다. 첫 요청에는 Render 무료 인스턴스의 cold start 화면과 기동 대기가 있었습니다. 터미널의 소켓 권한 오류는 해당 실행환경의 외부 연결 제한이며 Render HTTP 오류가 아닙니다. 할당량 초기화 후 데이터 조회와 관리화면 CRUD를 재검증해야 합니다. 이전 배포 점검에서는 Firestore 1,086건/요약 대상 250건, 저장된 대화 재조회와 Codyssey 추가 분석 응답을 확인했고, 시연용 임시 자료는 삭제해 기준 건수를 복구했습니다. 출력 토큰 한도는 앱 프롬프트에서 500일 때 응답이 `finish_reason=length`로 잘려 2,000으로 설정되어 있습니다. 과거 모델 오류 기록은 2026-10-20 점검 당시의 결과이며 현재 성공 호출 결과와 구분해 읽어야 합니다.
 
-2026-10-24 추가 코드 변경: Render 사전 깨우기 페이지와 Firestore 일일 `data` 스냅샷·7일 보관·누락 문서 복구 도구를 로컬 코드에 반영했습니다. **아직 Render/Vercel에 배포되지 않았으므로 운영 서비스에는 적용 전입니다.**
+2026-10-24 배포: Render 사전 깨우기 페이지와 Firestore 일일 `data` 스냅샷·7일 보관·누락 문서 복구 도구를 반영했습니다. GitHub `main`의 `0119f01` 커밋을 배포했고, Vercel의 `/warmup` 페이지와 Render health에서 `daily_backup.enabled=true`를 확인했습니다. 실제 Firestore 데이터 읽기와 스냅샷 쓰기는 이번 확인에서 실행하지 않았으며, health 상태의 백업 결과는 `not_run`입니다.
 
 로컬 `firestore_import` 백업의 읽기 전용 대체 경로는 2026-10-24 점검에서 CSV 변경자료 720건(생산량 요약 대상 187건)을 반환했습니다. 이는 Firestore 전체 스냅샷이 아니며 배포 서비스에는 포함되어 있지 않으므로, 배포 CRUD 검증이나 Firestore 전체 데이터 증빙으로 사용하지 않습니다.
 
@@ -33,7 +33,7 @@
 | Render/Vercel 배포 및 Codyssey 호출 | 이전 배포 점검 기록과 위 서비스 주소 | 2026-10-24 Firestore 일일 한도 초과로 현재 배포 데이터 API 재호출은 대기 |
 | 데이터 추가·수정·삭제 | 코드와 이전 API 검증 기록 | 실제 관리 화면 수정·삭제 시연 및 캡처는 Firestore 복구 후 보완 |
 | 대화 불러오기 | 이전 배포 점검 기록 | 최신 제출용 화면 캡처는 Firestore 복구 후 보완 |
-| 좁은 화면 사용성 | 해당 없음 | 제출 전 별도 확인 |
+| 좁은 화면 사용성 | 390×844 모바일 화면 확인 | 한 열 배치와 화면 폭 내 레이아웃 확인. 긴 공정 흐름·LOT 그래프는 각 영역 안에서 가로 스크롤 |
 
 Firestore 할당량 복구 후 `manage.html`에서 임시 데이터 1건을 추가·수정·삭제하고 기준 건수 복구를 확인합니다. 이어서 배포 채팅 답변과 저장 대화 재조회 화면을 캡처합니다. 파일은 각각 `docs/screenshots/data-crud.jpg`, `docs/screenshots/conversation-load.jpg` 및 `docs/screenshots/chat-firestore.jpg`로 저장합니다. 현재 캡처 파일은 로컬 CSV 자료를 사용한 결과이므로 제출 시 데이터 출처를 함께 설명합니다.
 
