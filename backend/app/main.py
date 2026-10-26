@@ -17,7 +17,9 @@ from pydantic import BaseModel, Field, field_validator
 from dotenv import load_dotenv
 load_dotenv()
 app = FastAPI(title='iMEB3 Manufacturing Intelligence API', version='0.50.0')
-origins = [x.strip() for x in os.getenv('ALLOWED_ORIGINS', 'http://localhost:5500,http://127.0.0.1:5500,null').split(',') if x.strip()]
+configured_origins = [x.strip() for x in os.getenv('ALLOWED_ORIGINS', 'http://localhost:5500,http://127.0.0.1:5500,null').split(',') if x.strip()]
+local_dev_origins = ['http://localhost:5500', 'http://127.0.0.1:5500']
+origins = list(dict.fromkeys([*configured_origins, *local_dev_origins]))
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False, allow_methods=['*'], allow_headers=['*'], expose_headers=['X-Data-Source', 'X-Data-Source-Info', 'X-Data-Source-Notice'])
 DB_MODE = 'memory'
 firestore_db = None
