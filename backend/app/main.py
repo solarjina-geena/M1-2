@@ -774,21 +774,33 @@ def fallback_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> str:
         return f'현재 구조화된 제조 DATA에서 {len(rows)}건을 조회했습니다. {sample}'
     return '현재 구조화된 제조 DATA에서 질문과 직접 일치하는 Evidence를 찾지 못했습니다. 없는 값은 생성하지 않습니다.'
 
-def openai_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple[str, str]:
+def conversation_history_messages(history: list[dict] | None) -> list[dict[str, str]]:
+    messages = []
+    for item in (history or [])[-8:]:
+        role = item.get('role') if isinstance(item, dict) else None
+        content = item.get('content') if isinstance(item, dict) else None
+        if role not in ('user', 'assistant') or not isinstance(content, str) or not content.strip():
+            continue
+        messages.append({'role': role, 'content': content.strip()[:1500]})
+    return messages
+
+def openai_answer(message: str, rows: list[dict], ctx: dict[str, Any], history: list[dict] | None = None) -> tuple[str, str]:
     local_answer = fallback_answer(message, rows, ctx)
     if not rows:
         return local_answer, 'LOCAL_ONLY'
     analysis_keywords = ('분석', '비교', '추세', '원인', '상관', '왜', '평가', '개선', '예측', '차이')
     if not any((keyword in message for keyword in analysis_keywords)):
         return local_answer, 'LOCAL_ONLY'
-    ai_answer, provider = codysay_answer(message, rows, ctx)
+    ai_answer, provider = codysay_answer(message, rows, ctx, history)
     if provider not in ('ANTHROPIC_MESSAGES', 'OPENAI_RESPONSES', 'CODYSAY_CHAT_COMPLETIONS', 'CODYSAY_FUNCTION_CALLING') or not ai_answer.strip():
         return local_answer, provider
     return local_answer + '\n\n■ AI 추가 분석\n' + ai_answer.strip(), provider
 
 MANUFACTURING_TOOLS = [{'type': 'function', 'function': {'name': 'get_manufacturing_records', 'description': 'iMEB3 제조 데이터에서 날짜, 제품 모델, 공정에 해당하는 생산수량과 불량 및 작업 기록을 조회한다.', 'parameters': {'type': 'object', 'properties': {'date': {'type': 'string', 'description': '생산일자 YYYY-MM-DD'}, 'variant': {'type': 'string', 'enum': ['IV', 'OV', 'HSV', 'ALL'], 'description': '제품 모델'}, 'process': {'type': 'string', 'enum': ['BA', 'CA', 'INJECTION', 'STITCHING', 'PATROL', 'ALL'], 'description': '조회할 제조 공정'}}, 'required': ['date', 'variant', 'process']}}}]
 
-def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple[str, str]:
+def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any], history: list[dict] | None = None) -> tuple[str, str]:
+    history_messages = conversation_history_messages(history)
+    history_text = '\n'.join(f"{item['role']}: {item['content']}" for item in history_messages)
     anthropic_key = os.getenv('ANTHROPIC_API_KEY', '').strip()
     if anthropic_key:
         try:
@@ -799,7 +811,7 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
             summary = build_summary(rows)
             evidence = [{'date': r.get('date'), 'variant': r.get('variant'), 'process': r.get('process'), 'metric': r.get('metric'), 'value': r.get('value'), 'unit': r.get('unit'), 'verification_status': r.get('verification_status')} for r in rows[:20]]
             instructions = SYSTEM + '\n\n[사용자 데이터 요약]\n' + json.dumps(summary, ensure_ascii=False) + '\n\n[질문 관련 DATA]\n' + json.dumps(evidence, ensure_ascii=False) + '\nHUMAN_VERIFIED, SOURCE_READ, DERIVED 등 내부 상태명은 출력하지 마라. 사람 확인값은 ✓, 계산값은 ≈로 표시하고, 기존 조회 수치는 반복하지 마라. 기존 제조 데이터 조회 결과를 반복하지 말고 추가 분석만 작성하라. 분석은 최대 3문장, 250자 이내로 작성하라. 내부 레코드 ID, run_id, 영문 필드명은 출력하지 마라. 근거 없는 원인이나 불량률은 추정하지 마라. BA와 CA는 연속 공정이므로 생산수량을 합산하여 총생산량이라고 표현하지 마라.'
-            response = client.messages.create(model=model, max_tokens=max_tokens, system=instructions, messages=[{'role': 'user', 'content': message}])
+            response = client.messages.create(model=model, max_tokens=max_tokens, system=instructions, messages=history_messages + [{'role': 'user', 'content': message}])
             answer = ''.join(block.text for block in response.content if getattr(block, 'type', '') == 'text').strip()
             if answer:
                 print('Anthropic Messages API response length:', len(answer))
@@ -836,14 +848,16 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
         evidence = [{'date': r.get('date'), 'variant': r.get('variant'), 'process': r.get('process'), 'metric': r.get('metric'), 'value': r.get('value'), 'unit': r.get('unit'), 'verification_status': r.get('verification_status')} for r in rows[:20]]
         instructions = SYSTEM + '\n\n[사용자 데이터 요약]\n' + json.dumps(summary, ensure_ascii=False) + '\n\n[질문 관련 DATA]\n' + json.dumps(evidence, ensure_ascii=False) + '\nHUMAN_VERIFIED, SOURCE_READ, DERIVED 등 내부 상태명은 출력하지 마라. 사람 확인값은 ✓, 계산값은 ≈로 표시하고, 기존 조회 수치는 반복하지 마라.' + '\n기존 제조 데이터 조회 결과를 반복하지 말고 추가 분석만 작성하라.' + '\n분석은 최대 3문장, 250자 이내로 작성하라.' + '\n내부 레코드 ID, run_id, 영문 필드명은 출력하지 마라.' + '\n원본 수치와 계산값을 구분하고, 근거 없는 원인이나 불량률은 추정하지 마라.' + '\nBA와 CA는 연속 공정이므로 생산수량을 합산하여 총생산량이라고 표현하지 마라.' + '\n서로 다른 공정의 불량수량을 합산하여 전체 불량률을 계산하지 마라. 공정별 수량 차이는 재공품 및 공정 흐름 확인 없이 손실로 단정하지 마라.'
         if 'codyssey.kr' not in base_url.lower():
-            resp = client.responses.create(model=model, instructions=instructions, input=message, max_output_tokens=max_completion_tokens)
+            prompt = (f'[이전 대화 문맥]\n{history_text}\n\n' if history_text else '') + f'[현재 질문]\n{message}'
+            resp = client.responses.create(model=model, instructions=instructions, input=prompt, max_output_tokens=max_completion_tokens)
             answer = (resp.output_text or '').strip()
             if not answer:
                 return fallback_answer(message, rows, ctx), 'FALLBACK_EMPTY_ANSWER'
             print('OpenAI Responses API response length:', len(answer))
             return answer, 'OPENAI_RESPONSES'
         ai_start = time.perf_counter()
-        resp = client.chat.completions.create(model=model, messages=[{'role': 'system', 'content': instructions}, {'role': 'user', 'content': message}], max_completion_tokens=max_completion_tokens)
+        chat_messages = [{'role': 'system', 'content': instructions}, *history_messages, {'role': 'user', 'content': message}]
+        resp = client.chat.completions.create(model=model, messages=chat_messages, max_completion_tokens=max_completion_tokens)
         print('Codyssey API elapsed seconds:', round(time.perf_counter() - ai_start, 2))
         tool_calls = resp.choices[0].message.tool_calls or []
         if tool_calls:
@@ -862,7 +876,7 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
                 result = get_manufacturing_records(date=date, variant=variant, process=process)
                 print('GPT tool name:', call.function.name)
                 print('GPT tool result count:', len(result))
-            tool_messages = [{'role': 'system', 'content': instructions}, {'role': 'user', 'content': message}, resp.choices[0].message.model_dump(exclude_none=True)]
+            tool_messages = [{'role': 'system', 'content': instructions}, *history_messages, {'role': 'user', 'content': message}, resp.choices[0].message.model_dump(exclude_none=True)]
             for call in tool_calls:
                 args = json.loads(call.function.arguments)
                 result = get_manufacturing_records(date=args.get('date', ''), variant=args.get('variant', 'ALL'), process=args.get('process', 'ALL'))
@@ -935,6 +949,11 @@ def chat(body: ChatIn):
                 rows = mcp_rows
         except Exception as e:
             print('MCP 조회 실패, 기존 조회 사용:', type(e).__name__)
+    conv = get('conversations', body.conversation_id) if body.conversation_id else None
+    if not conv:
+        cid = str(uuid.uuid4())
+        conv = {'id': cid, 'title': body.message[:28] or '새 대화', 'messages': [], 'context': ctx, 'created_at': now(), 'updated_at': now()}
+    history = conv.get('messages', [])
     is_lot_trace = bool(ctx.get('lot_query') and ctx.get('lot_date'))
     graph_date = ctx.get('lot_date') or ctx.get('date')
     lot_graph = None
@@ -945,7 +964,7 @@ def chat(body: ChatIn):
         answer = trace_lot(lot_rows, ctx['lot_query'], ctx['lot_date'], explicit_variant)
         provider = 'LOCAL_LOT_EVIDENCE'
     else:
-        answer, provider = openai_answer(body.message, rows, ctx)
+        answer, provider = openai_answer(body.message, rows, ctx, history)
     if DB_MODE in ('firestore', 'memory'):
         from lot_normalize import find_lot_evidence
         graph_variant = explicit_variant or ctx.get('variant')
@@ -1037,10 +1056,6 @@ def chat(body: ChatIn):
                 if ba_id and ca_id:
                     graph_edges.append({'from': ba_id, 'to': ca_id, 'status': 'ASSEMBLY_SET_REVIEW', 'priority': 1})
         lot_graph = {'storage': ACTIVE_DATA_SOURCE, 'read_only': True, 'lot_code': ctx.get('lot_query') or ctx.get('date_query'), 'lot_date': graph_date, 'anchor_date': ctx.get('date') or graph_date, 'variant': graph_variant, 'nodes': graph_nodes, 'edges': graph_edges}
-    conv = get('conversations', body.conversation_id) if body.conversation_id else None
-    if not conv:
-        cid = str(uuid.uuid4())
-        conv = {'id': cid, 'title': body.message[:28] or '새 대화', 'messages': [], 'context': ctx, 'created_at': now(), 'updated_at': now()}
     conv['messages'].append({'role': 'user', 'content': body.message, 'attachments': body.attachments})
     conv['messages'].append({'role': 'assistant', 'content': answer})
     conv['context'] = ctx
