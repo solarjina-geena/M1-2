@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import uuid
 import time
 import threading
@@ -541,8 +542,24 @@ def health():
             'daily_backup': {'enabled': DB_MODE == 'firestore', 'status': _DAILY_BACKUP_STATUS,
                              'date': _DAILY_BACKUP_DATE, 'retention_days': _DAILY_BACKUP_RETENTION_DAYS}}
 
+def require_admin(request: Request):
+    """Protect all state-changing endpoints with a server-side shared admin token."""
+    configured_token = os.getenv('ADMIN_API_TOKEN', '').strip()
+    if not configured_token:
+        raise HTTPException(status_code=503, detail='관리자 인증이 아직 설정되지 않았습니다.')
+    authorization = request.headers.get('Authorization', '')
+    supplied_token = authorization[7:].strip() if authorization.lower().startswith('bearer ') else ''
+    if not supplied_token or not secrets.compare_digest(supplied_token, configured_token):
+        raise HTTPException(status_code=401, detail='관리자 인증이 필요합니다.')
+
+@app.get('/api/admin/session')
+def admin_session(request: Request):
+    require_admin(request)
+    return {'authenticated': True}
+
 @app.post('/api/data')
-def create_data(body: DataIn):
+def create_data(body: DataIn, request: Request):
+    require_admin(request)
     if DB_MODE == 'firestore' and ACTIVE_DATA_SOURCE == 'csv_fallback':
         raise HTTPException(status_code=503, detail='CSV 임시조회는 읽기 전용입니다. Firestore가 복구된 뒤 다시 등록해 주세요.')
     id = str(uuid.uuid4())
@@ -563,7 +580,8 @@ def list_data(response: Response, limit: int = Query(2000, ge=1, le=2000)):
     return ordered[:limit]
 
 @app.put('/api/data/{id}')
-def update_data(id: str, body: DataUpdate):
+def update_data(id: str, body: DataUpdate, request: Request):
+    require_admin(request)
     if DB_MODE == 'firestore' and ACTIVE_DATA_SOURCE == 'csv_fallback':
         raise HTTPException(status_code=503, detail='CSV 임시조회는 읽기 전용입니다. Firestore가 복구된 뒤 다시 수정해 주세요.')
     obj = get('data', id)
@@ -575,7 +593,8 @@ def update_data(id: str, body: DataUpdate):
     return put('data', id, obj)
 
 @app.delete('/api/data/{id}')
-def delete_data(id: str):
+def delete_data(id: str, request: Request):
+    require_admin(request)
     if DB_MODE == 'firestore' and ACTIVE_DATA_SOURCE == 'csv_fallback':
         raise HTTPException(status_code=503, detail='CSV 임시조회는 읽기 전용입니다. Firestore가 복구된 뒤 다시 삭제해 주세요.')
     if not get('data', id):
@@ -611,7 +630,8 @@ def summary(response: Response):
     return build_summary(rows)
 
 @app.post('/api/data/seed-demo')
-def seed_demo():
+def seed_demo(request: Request):
+    require_admin(request)
     '''평가용 비식별 시계열 120건. 실제 회사 생산실적이 아님.'''
 
     inserted = 0
@@ -632,7 +652,8 @@ def seed_demo():
     return {'inserted': inserted, 'total': len(all_docs('data')), 'notice': '평가용 비식별 DEMO DATA이며 실제 회사 생산실적이 아닙니다.'}
 
 @app.post('/api/migration/recovered-v1')
-def migrate_recovered_v1():
+def migrate_recovered_v1(request: Request):
+    require_admin(request)
     from migration.migrate_recovered import migrate
     return {**migrate(put, get, now), 'storage': DB_MODE}
 
@@ -644,7 +665,8 @@ def migration_status():
     return {'batch': 'RECOVERED_VERIFIED_V1', 'migrated': len(rows), 'human_verified': hv, 'source_read': sr, 'storage': DB_MODE}
 
 @app.post('/api/conversations')
-def create_conv(body: ConversationIn):
+def create_conv(body: ConversationIn, request: Request):
+    require_admin(request)
     id = str(uuid.uuid4())
     obj = {'id': id, **body.model_dump(), 'created_at': now(), 'updated_at': now()}
     return put('conversations', id, obj)
@@ -661,12 +683,14 @@ def get_conv(id: str):
     return obj
 
 @app.delete('/api/conversations/{id}')
-def del_conv(id: str):
+def del_conv(id: str, request: Request):
+    require_admin(request)
     delete('conversations', id)
     return {'deleted': id}
 
 @app.post('/api/reviews')
-def create_review(body: ReviewIn):
+def create_review(body: ReviewIn, request: Request):
+    require_admin(request)
     id = str(uuid.uuid4())
     obj = {'id': id, **body.model_dump(), 'created_at': now(), 'updated_at': now()}
     return put('reviews', id, obj)
