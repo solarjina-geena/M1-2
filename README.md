@@ -43,6 +43,8 @@
 
 2026-10-26 Vercel 관리 화면에서 저장된 Codyssey 대화를 선택해 Firestore에서 전체 메시지를 다시 불러왔다. Render 채팅 응답은 `ai_provider=CODYSAY_CHAT_COMPLETIONS`, `storage=firestore`였고 대화 ID는 `c25dfa44-0d83-435f-8376-7ff17471541a`다.
 
+연속 대화도 Render에서 확인했다. 대화 ID `6a63967d-a0a5-4f4e-8ba8-c324b0549cd4`에서 사용자가 정한 `파랑새-19` 별칭의 뜻을 후속 질문으로 물었고, Codyssey가 앞선 메시지를 기억해 답했다. 분석 키워드가 없는 질문이었으며 대화 ID가 유지되고 Firestore에 메시지 10개가 저장됐다. 이 검증 과정에서 발견한 대화 이력 전달 누락을 수정해 재배포한 뒤 성공 결과를 확인했다.
+
 CRUD 화면에서 임시 `Codex CRUD 검증` 행을 추가하고 값 `12345`에서 `12346`으로 수정한 뒤 삭제했다. 삭제 후 임시 행이 사라지고 Firestore 기준 전체 1,086건, 생산량 250건과 요약 통계가 복구된 것을 확인했다.
 
 ![Codyssey 대화 목록에서 저장된 AI 답변 다시 불러오기](docs/screenshots/conversation-load-codyssey.png)
