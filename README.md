@@ -15,9 +15,9 @@
 - 관리 화면: [https://m1-2-frontend-dun.vercel.app/manage.html](https://m1-2-frontend-dun.vercel.app/manage.html)
 - 시연 전 Render 사전 준비 페이지: [https://m1-2-frontend-dun.vercel.app/warmup](https://m1-2-frontend-dun.vercel.app/warmup)
 
-**2026-10-26 실시간 확인:** Render `/api/health`는 `storage=firestore`, `csv_fallback=false`, 오늘 백업 `complete`를 반환했고 `/api/data/summary`는 전체 1,086건, 요약 대상 250건을 반환했습니다. CORS에서 로컬 대시보드 출처가 빠진 문제를 수정해 `localhost:5500`과 `127.0.0.1:5500`을 허용했고, Render 응답의 `Access-Control-Allow-Origin` 헤더를 확인했습니다. 위 상태 페이지는 Vercel 브라우저에서 Render health와 Firestore 요약을 직접 요청해 결과를 보여줍니다. 관리 화면 CRUD, AI 용량 오류 해결, 제출용 채팅·대화 재조회 증빙은 별도 검증이 필요합니다.
+**2026-10-26 실시간 확인:** Render `/api/health`는 `storage=firestore`, `csv_fallback=false`를 반환했고 `/api/data/summary`는 전체 1,086건, 요약 대상 250건을 반환했습니다. 백업 상태는 배포 재시작 후 `not_run`으로 확인했습니다. CORS에서 로컬 대시보드 출처가 빠진 문제를 수정해 `localhost:5500`과 `127.0.0.1:5500`을 허용했고 Render 응답의 `Access-Control-Allow-Origin` 헤더를 확인했습니다. Vercel 브라우저에서 Codyssey 분석 채팅 성공, Firestore 대화 저장 및 재조회를 확인하고 임시 데이터 UI 추가·수정·삭제 후 기준 건수를 복구했습니다.
 
-2026-10-24 상태 기록은 당시 관측값입니다. 그날은 Firestore 일일 한도 제한으로 요약 조회가 실패하고 백업 상태가 `not_run`이었지만, 2026-10-26 재확인에서는 요약 조회와 오늘 백업이 완료됐습니다.
+2026-10-24 상태 기록은 당시 관측값입니다. 그날은 Firestore 일일 한도 제한으로 요약 조회가 실패했습니다. 2026-10-26 앞선 실행에서는 백업 `complete`도 확인했으며, 이후 Render 재시작 뒤 현재 health의 백업 상태는 `not_run`으로 보입니다.
 
 로컬 `firestore_import` 백업의 읽기 전용 대체 경로는 2026-10-24 점검에서 CSV 변경자료 720건(생산량 요약 대상 187건)을 반환했습니다. 이는 Firestore 전체 스냅샷이 아니며 배포 서비스에는 포함되어 있지 않으므로, 배포 CRUD 검증이나 Firestore 전체 데이터 증빙으로 사용하지 않습니다.
 
@@ -35,11 +35,23 @@
 |---|---|---|
 | 제조 질문·답변 및 LOT 그래프 | 위 로컬 화면 캡처 | CSV 임시자료 기반임을 캡션과 화면에 표시. Firestore 배포 증거로 사용하지 않음 |
 | Render/Vercel 배포·CORS·Firestore 읽기 | 위 실시간 상태 점검 링크 | 2026-10-26 Render health, CORS 브라우저 요청, Firestore 요약 조회 성공 확인 |
-| 데이터 추가·수정·삭제 | 코드와 이전 API 검증 기록 | 실제 관리 화면 수정·삭제 시연 및 캡처 보완 필요 |
-| 대화 불러오기 | 이전 배포 점검 기록 | 최신 제출용 화면 캡처는 Firestore 복구 후 보완 |
+| 데이터 추가·수정·삭제 | Vercel 관리 화면의 임시 Firestore 데이터 시연 | 아래 추가·수정·삭제 캡처. 종료 후 전체 1,086건/생산량 250건 복구 확인 |
+| Codyssey 채팅·대화 불러오기 | Render 채팅 응답과 저장 대화 상세 재조회 | 아래 캡처 및 대화 ID `c25dfa44-0d83-435f-8376-7ff17471541a`; `ai_provider=CODYSAY_CHAT_COMPLETIONS` |
 | 좁은 화면 사용성 | 390×844 모바일 화면 확인 | 한 열 배치와 화면 폭 내 레이아웃 확인. 긴 공정 흐름·LOT 그래프는 각 영역 안에서 가로 스크롤 |
 
-남은 필수 증빙은 실제 배포 화면에서 AI 채팅 질문·답변과 저장 대화 재조회, 관리화면 수정·삭제를 시연해 캡처하는 것입니다. 기존 2026-09-09 캡처는 로컬 CSV 자료이므로 Firestore 증거로 간주하지 않습니다.
+### 최신 배포 기능 증빙
+
+2026-10-26 Vercel 관리 화면에서 저장된 Codyssey 대화를 선택해 Firestore에서 전체 메시지를 다시 불러왔다. Render 채팅 응답은 `ai_provider=CODYSAY_CHAT_COMPLETIONS`, `storage=firestore`였고 대화 ID는 `c25dfa44-0d83-435f-8376-7ff17471541a`다.
+
+CRUD 화면에서 임시 `Codex CRUD 검증` 행을 추가하고 값 `12345`에서 `12346`으로 수정한 뒤 삭제했다. 삭제 후 임시 행이 사라지고 Firestore 기준 전체 1,086건, 생산량 250건과 요약 통계가 복구된 것을 확인했다.
+
+![Codyssey 대화 목록에서 저장된 AI 답변 다시 불러오기](docs/screenshots/conversation-load-codyssey.png)
+
+![관리 화면에서 임시 데이터 추가](docs/screenshots/data-crud-create.png)
+
+![관리 화면에서 임시 데이터 수정](docs/screenshots/data-crud-update.png)
+
+![임시 데이터 삭제 후 Firestore 기준 건수 복구](docs/screenshots/data-crud-delete-restored.png)
 
 ## 구현 기능
 
