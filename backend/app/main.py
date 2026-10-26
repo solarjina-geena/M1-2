@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
-from fastapi import (FastAPI, HTTPException, Query, Response)
+from fastapi import (FastAPI, HTTPException, Query, Request, Response)
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 from dotenv import load_dotenv
@@ -347,10 +347,32 @@ class ConversationIn(BaseModel):
     context: dict[str, Any] = {}
 
 class ChatIn(BaseModel):
-    message: str
-    conversation_id: str | None = None
-    context: dict[str, Any] = {}
-    attachments: list[dict[str, Any]] = []
+    message: str = Field(min_length=1, max_length=2000)
+    conversation_id: str | None = Field(default=None, max_length=128)
+    context: dict[str, Any] = Field(default_factory=dict)
+    attachments: list[dict[str, Any]] = Field(default_factory=list, max_length=5)
+
+    @field_validator('message')
+    @classmethod
+    def validate_message(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError('질문 내용을 입력해 주세요.')
+        return value
+
+    @field_validator('context')
+    @classmethod
+    def validate_context_size(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(value) > 32 or len(json.dumps(value, ensure_ascii=False).encode('utf-8')) > 4096:
+            raise ValueError('context 크기 제한을 초과했습니다.')
+        return value
+
+    @field_validator('attachments')
+    @classmethod
+    def validate_attachments_size(cls, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if len(json.dumps(value, ensure_ascii=False).encode('utf-8')) > 16384:
+            raise ValueError('첨부 정보 크기 제한을 초과했습니다.')
+        return value
 
 class ReviewIn(BaseModel):
     type: str = 'DATA_CONFIRMATION'
@@ -364,6 +386,27 @@ class ReviewIn(BaseModel):
     note: str = ''
 
 _WORKBOOK_EVIDENCE_CACHE = None
+_CHAT_RATE_WINDOW_SECONDS = 60
+_CHAT_RATE_LIMIT = 20
+_CHAT_RATE_BUCKETS: dict[str, list[float]] = {}
+_CHAT_RATE_LOCK = threading.Lock()
+
+def enforce_chat_rate_limit(request: Request) -> None:
+    client_host = request.client.host if request.client else 'unknown'
+    bucket = hashlib.sha256(client_host.encode('utf-8')).hexdigest()
+    now_mono = time.monotonic()
+    cutoff = now_mono - _CHAT_RATE_WINDOW_SECONDS
+    with _CHAT_RATE_LOCK:
+        active = [stamp for stamp in _CHAT_RATE_BUCKETS.get(bucket, []) if stamp > cutoff]
+        if len(active) >= _CHAT_RATE_LIMIT:
+            retry_after = max(1, int(_CHAT_RATE_WINDOW_SECONDS - (now_mono - active[0])))
+            _CHAT_RATE_BUCKETS[bucket] = active
+            raise HTTPException(status_code=429, detail='요청이 많습니다. 잠시 뒤 다시 시도해 주세요.', headers={'Retry-After': str(retry_after)})
+        active.append(now_mono)
+        _CHAT_RATE_BUCKETS[bucket] = active
+        if len(_CHAT_RATE_BUCKETS) > 2048:
+            _CHAT_RATE_BUCKETS.clear()
+            _CHAT_RATE_BUCKETS[bucket] = active
 
 def load_workbook_evidence():
     '''Read only confirmed graph evidence from the one designated workbook.'''
@@ -634,6 +677,7 @@ def list_reviews(status: str | None=None):
     return [r for r in rows if status is None or r.get('status') == status]
 
 SYSTEM = '당신은 iMEB3 제조 품질·Traceability AI Agent다.\n원본 Evidence와 사람의 판단을 엄격히 분리한다.\nProvenance 우선순위는 HUMAN_VERIFIED > SOURCE_READ > DERIVED이다.\nBLANK를 0으로 만들지 말고, 없는 값을 만들지 말라.\nMES와 작업일보를 임의로 혼합하지 말라.\n생산 RUN 식별자는 YYYYMMDD{D|N}{sequence}이며 날짜만으로 생산 Event를 확정하지 말라.\n\n중요한 Provenance 규칙:\n- verification_status가 DEMO_DATA인 레코드는 평가용 비식별 샘플 데이터다.\n- DEMO_DATA를 HUMAN_VERIFIED 또는 SOURCE_READ라고 표현하지 말라.\n- DEMO_DATA에서 계산한 합계, 평균, 최대, 최소, 추세는 DEMO_DATA 기반 DERIVED 통계라고 명시하라.\n- DEMO_DATA는 실제 회사 생산실적이나 원본 제조 Evidence라고 표현하지 말라.\n- provenance/value_source와 verification_status가 충돌하면 실제 상태를 임의로 승격하지 말라.\n\n답변은 짧고 현장 사용자가 이해하기 쉬운 한국어로 한다.'
+SYSTEM += '\n요청한 조건의 근거 자료가 없거나 질문에 답할 자료가 부족하면 확인할 수 없다고 명확히 답하라. 다른 날짜·모델·공정의 기록을 대신 사용하거나 값을 추정하지 말라.'
 SYSTEM += '\n이전 대화에서 사용자가 직접 정한 별칭·선호·설정은 대화 문맥으로 답하라. 이를 Firestore에서 검증된 제조 사실처럼 표현하지 말라. 후속 질문은 이전 사용자·AI 메시지를 참고해 이어서 답하라.'
 
 def infer_graph_context(text: str, current: dict[str, Any]):
@@ -790,14 +834,22 @@ def openai_answer(message: str, rows: list[dict], ctx: dict[str, Any], history: 
     if not rows and not history:
         return local_answer, 'LOCAL_ONLY'
     analysis_keywords = ('분석', '비교', '추세', '원인', '상관', '왜', '평가', '개선', '예측', '차이')
-    if not history and not any((keyword in message for keyword in analysis_keywords)):
+    explicit_record_lookup = bool(ctx.get('date') and (ctx.get('variant') or ctx.get('process')))
+    if not history and not explicit_record_lookup and not any((keyword in message for keyword in analysis_keywords)):
         return local_answer, 'LOCAL_ONLY'
     ai_answer, provider = codysay_answer(message, rows, ctx, history)
     if provider not in ('ANTHROPIC_MESSAGES', 'OPENAI_RESPONSES', 'CODYSAY_CHAT_COMPLETIONS', 'CODYSAY_FUNCTION_CALLING') or not ai_answer.strip():
         return local_answer, provider
     return local_answer + '\n\n■ AI 추가 분석\n' + ai_answer.strip(), provider
 
-MANUFACTURING_TOOLS = [{'type': 'function', 'function': {'name': 'get_manufacturing_records', 'description': 'iMEB3 제조 데이터에서 날짜, 제품 모델, 공정에 해당하는 생산수량과 불량 및 작업 기록을 조회한다.', 'parameters': {'type': 'object', 'properties': {'date': {'type': 'string', 'description': '생산일자 YYYY-MM-DD'}, 'variant': {'type': 'string', 'enum': ['IV', 'OV', 'HSV', 'ALL'], 'description': '제품 모델'}, 'process': {'type': 'string', 'enum': ['BA', 'CA', 'INJECTION', 'STITCHING', 'PATROL', 'ALL'], 'description': '조회할 제조 공정'}}, 'required': ['date', 'variant', 'process']}}}]
+MANUFACTURING_TOOLS = [{'type': 'function', 'function': {'name': 'get_manufacturing_records', 'description': 'iMEB3 제조 데이터에서 날짜, 제품 모델, 공정에 해당하는 생산수량과 불량 및 작업 기록을 조회한다.', 'parameters': {'type': 'object', 'properties': {'date': {'type': 'string', 'description': 'YYYY-MM-DD 형식의 유효한 생산일자'}, 'variant': {'type': 'string', 'enum': ['IV', 'OV', 'HSV', 'ALL'], 'description': '제품 모델'}, 'process': {'type': 'string', 'enum': ['BA', 'CA', 'INJECTION', 'STITCHING', 'PATROL', 'ALL'], 'description': '조회할 제조 공정'}}, 'required': ['date', 'variant', 'process'], 'additionalProperties': False}}}]
+
+def bounded_output_tokens(variable: str, default: str) -> int:
+    try:
+        configured = int(os.getenv(variable, default))
+    except (TypeError, ValueError):
+        configured = int(default)
+    return max(128, min(configured, 4096))
 
 def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any], history: list[dict] | None = None) -> tuple[str, str]:
     history_messages = conversation_history_messages(history)
@@ -806,9 +858,9 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any], history:
     if anthropic_key:
         try:
             import anthropic
-            client = anthropic.Anthropic(api_key=anthropic_key)
+            client = anthropic.Anthropic(api_key=anthropic_key, timeout=30.0, max_retries=1)
             model = os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
-            max_tokens = int(os.getenv('ANTHROPIC_MAX_OUTPUT_TOKENS', os.getenv('OPENAI_MAX_OUTPUT_TOKENS', '2000')))
+            max_tokens = bounded_output_tokens('ANTHROPIC_MAX_OUTPUT_TOKENS', os.getenv('OPENAI_MAX_OUTPUT_TOKENS', '2000'))
             summary = build_summary(rows)
             evidence = [{'date': r.get('date'), 'variant': r.get('variant'), 'process': r.get('process'), 'metric': r.get('metric'), 'value': r.get('value'), 'unit': r.get('unit'), 'verification_status': r.get('verification_status')} for r in rows[:20]]
             instructions = SYSTEM + '\n\n[사용자 데이터 요약]\n' + json.dumps(summary, ensure_ascii=False) + '\n\n[질문 관련 DATA]\n' + json.dumps(evidence, ensure_ascii=False) + '\nHUMAN_VERIFIED, SOURCE_READ, DERIVED 등 내부 상태명은 출력하지 마라. 사람 확인값은 ✓, 계산값은 ≈로 표시하고, 기존 조회 수치는 반복하지 마라. 기존 제조 데이터 조회 결과를 반복하지 말고 추가 분석만 작성하라. 분석은 최대 3문장, 250자 이내로 작성하라. 내부 레코드 ID, run_id, 영문 필드명은 출력하지 마라. 근거 없는 원인이나 불량률은 추정하지 마라. BA와 CA는 연속 공정이므로 생산수량을 합산하여 총생산량이라고 표현하지 마라.'
@@ -821,7 +873,7 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any], history:
         except Exception as e:
             import traceback
             print('Anthropic API error type:', type(e).__name__)
-            print('Anthropic API error detail:', str(e)[:1000])
+            print('Anthropic API error details suppressed')
             for frame in traceback.extract_tb(e.__traceback__):
                 if frame.filename.endswith('main.py'):
                     print('  line:', frame.lineno, '| function:', frame.name)
@@ -832,14 +884,14 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any], history:
     try:
         from openai import OpenAI
         base_url = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1').strip()
-        client = OpenAI(api_key=key, base_url=base_url) if base_url else OpenAI(api_key=key)
+        client = OpenAI(api_key=key, base_url=base_url, timeout=30.0, max_retries=1) if base_url else OpenAI(api_key=key, timeout=30.0, max_retries=1)
         model = os.getenv('OPENAI_MODEL', 'gpt-5-mini')
-        max_completion_tokens = int(os.getenv('OPENAI_MAX_OUTPUT_TOKENS', '2000'))
+        max_completion_tokens = bounded_output_tokens('OPENAI_MAX_OUTPUT_TOKENS', '2000')
         summary = build_summary(rows)
     except Exception as e:
         import traceback
         print('AI API setup error type:', type(e).__name__)
-        print('AI API setup error detail:', str(e)[:1000])
+        print('AI API setup error details suppressed')
         print('AI API setup error location:')
         for frame in traceback.extract_tb(e.__traceback__):
             if frame.filename.endswith('main.py'):
@@ -858,24 +910,7 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any], history:
             return answer, 'OPENAI_RESPONSES'
         ai_start = time.perf_counter()
         chat_messages = [{'role': 'system', 'content': instructions}, *history_messages, {'role': 'user', 'content': message}]
-        manufacturing_tool = {
-            'type': 'function',
-            'function': {
-                'name': 'get_manufacturing_records',
-                'description': 'Firestore의 제조 기록을 날짜, 제품 모델, 공정으로 읽기 전용 조회합니다.',
-                'parameters': {
-                    'type': 'object',
-                    'properties': {
-                        'date': {'type': 'string', 'description': 'YYYY-MM-DD 형식의 기준 날짜'},
-                        'variant': {'type': 'string', 'enum': ['IV', 'OV', 'HSV', 'ALL']},
-                        'process': {'type': 'string', 'enum': ['BA', 'CA', 'INJECTION', 'STITCHING', 'PATROL', 'ALL']},
-                    },
-                    'required': ['date', 'variant', 'process'],
-                    'additionalProperties': False,
-                },
-            },
-        }
-        resp = client.chat.completions.create(model=model, messages=chat_messages, tools=[manufacturing_tool], tool_choice='auto', max_completion_tokens=max_completion_tokens)
+        resp = client.chat.completions.create(model=model, messages=chat_messages, tools=MANUFACTURING_TOOLS, tool_choice='auto', max_completion_tokens=max_completion_tokens)
         print('Codyssey API elapsed seconds:', round(time.perf_counter() - ai_start, 2))
         tool_calls = resp.choices[0].message.tool_calls or []
         if tool_calls:
@@ -915,7 +950,7 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any], history:
     except Exception as e:
         import traceback
         print('Codyssey API error type:', type(e).__name__)
-        print('Codyssey API error detail:', str(e)[:1000])
+        print('Codyssey API error details suppressed')
         print('Codyssey API error location:')
         for frame in traceback.extract_tb(e.__traceback__):
             if frame.filename.endswith('main.py'):
@@ -940,7 +975,8 @@ def get_manufacturing_records(date: str, variant: str, process: str) -> list[dic
     return rows
 
 @app.post('/api/chat')
-def chat(body: ChatIn):
+def chat(body: ChatIn, request: Request):
+    enforce_chat_rate_limit(request)
     ctx = infer_graph_context(body.message, body.context)
     all_rows = all_docs('data')
     maybe_create_daily_backup(all_rows)

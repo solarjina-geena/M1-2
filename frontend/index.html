@@ -3,13 +3,14 @@
 /* v0.38 chat UX */
 main{grid-template-columns:minmax(0,2.65fr) minmax(420px,1.35fr)}
 .agent{min-width:420px}
-.history-head{background:#fff}
+ .history-head{background:#fff}
 .history-list{max-height:230px;background:#f7f9fb;padding:7px}
 .history-item{display:grid;grid-template-columns:1fr auto;gap:4px 8px;border:1px solid transparent;margin-bottom:4px;background:white}
 .history-item:hover{border-color:#d9e0e6}.history-item.active{border-color:#111923;background:#eef2f5}
 .history-item .history-title{min-width:0}.history-item .history-title b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}.history-item .history-title small{display:block;margin-top:2px}.history-item .history-meta{font-size:8px;color:#8b949d;align-self:center}
 .chat{padding:14px 12px 18px}.msg{font-size:11px;line-height:1.58;white-space:pre-wrap;overflow-wrap:anywhere}.msg.ai-msg{max-width:94%}.msg.user-msg{max-width:88%}
 form{align-items:flex-end;background:white}form textarea{min-width:0;flex:1;resize:none;max-height:130px;min-height:38px;border:1px solid #cfd6dc;border-radius:10px;padding:10px 11px;font:inherit;font-size:10px;line-height:1.45;outline:none;overflow-y:auto}form textarea:focus{border-color:#758390;box-shadow:0 0 0 2px rgba(17,25,35,.06)}form button{height:38px;padding:0 14px;cursor:pointer}
+ .dashboard-actions{display:flex;align-items:center;gap:10px}.manage-shortcut{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 10px;font-size:10px;text-decoration:none;white-space:nowrap}.manage-shortcut:hover{background:#f3f6f8}.msg.is-loading{display:flex;align-items:center;gap:8px;color:#566473}.loading-spinner{width:13px;height:13px;border:2px solid #cbd4dc;border-top-color:#2679d8;border-radius:50%;animation:chat-spin .8s linear infinite;flex:none}@keyframes chat-spin{to{transform:rotate(360deg)}}form button:disabled{opacity:.65;cursor:wait}
 @media(max-width:1200px){main{grid-template-columns:minmax(0,2.2fr) minmax(390px,1fr)}.agent{min-width:390px}}
 @media(max-width:1050px){main{grid-template-columns:1fr}.agent{min-width:0}}
 
@@ -133,13 +134,13 @@ main>.agent{
   }
 }
 
-.axis-controls{margin-left:auto;display:flex;align-items:center;gap:5px;white-space:nowrap}.axis-controls>b{font-size:9px;color:var(--muted);font-weight:600}.axis-controls button,.axis-controls input,.axis-controls select{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 7px;font-size:9px;color:var(--ink)}.axis-controls button{cursor:pointer}.axis-controls input{width:112px}.axis-controls .legend{margin-left:5px}.genealogy-card{height:calc(100vh - 260px);min-height:430px;display:flex;flex-direction:column}.genealogy-card .card-head{flex:none}.lot-graph{flex:1;min-height:0;margin-top:6px;overflow:auto}.lot-graph svg{width:100%;height:100%;min-height:440px;display:block}.trace-status{font-size:10px;color:var(--muted);text-align:right}.graph-legend{flex:none;display:flex;align-items:center;gap:14px;border-top:1px solid var(--line);padding:7px 4px 0;font-size:9px;color:var(--muted)}.graph-legend span{display:flex;align-items:center;gap:5px}.graph-legend i{width:10px;height:8px;border-radius:50%;display:inline-block;border:1px solid #8a96a1}.graph-legend .iv{background:#111}.graph-legend .ov{background:#e7ad00}.graph-legend .hsv{background:#2679d8}.graph-legend .edge-solid,.graph-legend .edge-dashed{width:22px;height:0;border:0;border-top:2px solid #78899a;border-radius:0}.graph-legend .edge-dashed{border-top-style:dashed}@media(max-height:780px) and (min-width:1051px){.genealogy-card{height:calc(100vh - 230px);min-height:400px}.dashboard .hero-row{height:40px}}@media(max-width:1050px){.genealogy-card{height:620px;min-height:520px}.lot-graph svg{min-width:760px}.graph-legend{flex-wrap:wrap}.series-legend{display:flex;gap:14px;font-size:9px;color:var(--muted)}.series-legend span{display:flex;align-items:center;gap:5px}.series-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}.production-chart{height:240px;margin-top:8px;overflow:hidden}.production-chart svg{width:100%;height:100%;display:block}.series-empty{height:100%;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:11px;background:#fafbfc;border-radius:8px}@media(max-width:700px){.series-legend{flex-wrap:wrap}.production-chart{height:210px}}</style></head><body>
+.axis-controls{margin-left:auto;display:flex;align-items:center;gap:5px;white-space:nowrap}.axis-controls>b{font-size:9px;color:var(--muted);font-weight:600}.axis-controls button,.axis-controls input,.axis-controls select{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 7px;font-size:9px;color:var(--ink)}.axis-controls button{cursor:pointer}.axis-controls input{width:112px}.axis-controls .legend{margin-left:5px}.genealogy-card{height:calc(100vh - 260px);min-height:430px;display:flex;flex-direction:column}.genealogy-card .card-head{flex:none}.lot-graph{flex:1;min-height:0;margin-top:6px;overflow:auto}.lot-graph svg{width:100%;height:100%;min-height:440px;display:block}.trace-status{font-size:10px;color:var(--muted);text-align:right}.graph-legend{flex:none;display:flex;align-items:center;gap:14px;border-top:1px solid var(--line);padding:7px 4px 0;font-size:9px;color:var(--muted)}.graph-legend span{display:flex;align-items:center;gap:5px}.graph-legend i{width:10px;height:8px;border-radius:50%;display:inline-block;border:1px solid #8a96a1}.graph-legend .iv{background:#111}.graph-legend .ov{background:#e7ad00}.graph-legend .hsv{background:#2679d8}.graph-legend .edge-solid,.graph-legend .edge-dashed{width:22px;height:0;border:0;border-top:2px solid #78899a;border-radius:0}.graph-legend .edge-dashed{border-top-style:dashed}@media(max-height:780px) and (min-width:1051px){.genealogy-card{height:calc(100vh - 230px);min-height:400px}.dashboard .hero-row{height:40px}}@media(max-width:1050px){.genealogy-card{height:620px;min-height:520px}.lot-graph svg{min-width:760px}.graph-legend{flex-wrap:wrap}.series-legend{display:flex;gap:14px;font-size:9px;color:var(--muted)}.series-legend span{display:flex;align-items:center;gap:5px}.series-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}.production-chart{height:240px;margin-top:8px;overflow:hidden}.production-chart svg{width:100%;height:100%;display:block}.series-empty{height:100%;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:11px;background:#fafbfc;border-radius:8px}@media(max-width:700px){.series-legend{flex-wrap:wrap}.production-chart{height:210px}}</style><style>@media(max-width:700px){.dashboard-actions{width:100%;flex-wrap:wrap;justify-content:space-between}.manage-shortcut{margin-left:auto}}</style></head><body>
 <div class="app">
 <header><div><span class="eyebrow">MANUFACTURING INTELLIGENCE</span><h1>iMEB3 · 사출 품질 대시보드</h1></div><div class="status"><i></i> Evidence 기반</div></header>
 <section class="flow"><div class="flow-title"><b>제조 공정 흐름</b><span>단계를 누르면 그래프가 좁혀집니다</span></div><button class="step" data-proc="ALL"><small>00</small><b>전체 흐름</b><span>원소재부터 검사·출하까지</span></button><i>⇄</i><button class="step" data-proc="INJECTION"><small>01</small><b>사출</b><span>보빈·케이스 성형</span></button><i>⇄</i><button class="step" data-proc="STITCHING"><small>02</small><b>BS / 스티칭</b><span>리드핀 삽입</span></button><i>⇄</i><button class="step" data-proc="BA"><small>03</small><b>BA / 보빈아세이</b><span>권선·용접</span></button><i>⇄</i><button class="step" data-proc="CA"><small>04</small><b>CA / 코일아세이</b><span>코일 조립</span></button><i>⇄</i><button class="step" data-proc="FINAL_INSPECTION"><small>05</small><b>최종검사</b><span>검사·합격수량</span></button><i>⇄</i><button class="step" data-proc="SHIPMENT"><small>06</small><b>출하</b><span>출하수량</span></button></section>
 <section class="toolbar"><div class="product"><span>제품</span><strong>iMEB3</strong></div><div class="model"><span>모델</span><button data-v="ALL" class="active">전체</button><button data-v="IV"><i class="iv"></i>IV</button><button data-v="OV"><i class="ov"></i>OV</button><button data-v="HSV"><i class="hsv"></i>HSV</button></div><div class="axis-controls"><b>표시 구간</b><button id="rangeBack" title="이전 기간">◀</button><input id="axisStart" type="date" aria-label="시작 날짜"><span>~</span><input id="axisEnd" type="date" aria-label="끝 날짜"><button id="rangeForward" title="다음 기간">▶</button><select id="rangePreset" aria-label="표시 기간"><option value="auto" selected>자동 맞춤</option><option value="7">7일</option><option value="30">1개월</option><option value="90">3개월</option><option value="all">전체</option><option value="custom">직접 선택</option></select><span class="legend"><em class="iv"></em>IV <em class="ov"></em>OV <em class="hsv"></em>HSV</span></div></section>
 <main><section class="dashboard">
-<div class="hero-row"><div><span class="kicker">iMEB3 · LOT GENEALOGY</span><h2 id="viewTitle">검사 제품에서 원소재·출하까지 보기</h2></div><div class="trace-status" id="traceStatus">Firestore LOT 추적 대기 · 최근 그래프 유지</div></div>
+<div class="hero-row"><div><span class="kicker">iMEB3 · LOT GENEALOGY</span><h2 id="viewTitle">검사 제품에서 원소재·출하까지 보기</h2></div><div class="dashboard-actions"><div class="trace-status" id="traceStatus">Firestore LOT 추적 대기 · 최근 그래프 유지</div><a class="manage-shortcut" href="./manage.html" target="_blank" rel="noopener">관리 화면 열기 ↗</a></div></div>
 <div class="card genealogy-card"><div class="card-head"><div><h3 id="graphTitle">공정 흐름과 LOT 추적 · 피시본 시안</h3><p>X축은 날짜가 아니라 제조 흐름 순서입니다. 공정 상자 안에 해당 날짜와 수량을 넣고, 여러 날의 최종검사는 날짜별 상자로 표시합니다. 원소재 LOT 가지는 위쪽에, BA·CA 수량 갭은 아래쪽에 분리합니다.</p></div><span>LOT · EA</span></div><div id="lotGraph" class="lot-graph" role="img" aria-label="공정 흐름과 제품 LOT, 검사일, 공정별 수량 갭을 분리한 피시본 시안"></div><div class="graph-legend"><span><i class="edge-solid"></i> 원본 LOT 사용 기록</span><span><i class="edge-dashed" style="border-top-width:3px"></i> 검사 LOT 매핑 (점선)</span><span><i class="edge-dashed" style="border-top-width:2px"></i> 공정 연결 후보</span><span><i class="edge-dashed" style="border-top-width:1px"></i> 날짜 기반 검토 후보</span><span style="color:#8a929b">● BA·CA 수량 갭 · 확인 필요</span><span><i class="iv"></i> IV</span><span><i class="ov"></i> OV</span><span><i class="hsv"></i> HSV</span></div></div>
 </section>
 <aside class="agent"><div class="agent-head"><div><span class="ai">AI</span><div><b>제조 AI Agent</b><small>질문한 모델·공정 LOT의 조회 결과를 표시합니다.</small></div></div><button id="newChat">＋ 새 대화</button></div>
@@ -243,17 +244,30 @@ function renderChat(){
     }
   }
 
-  $('#chat').innerHTML = groups.slice(-4).reverse().map(group =>
-    `<div class="chat-group">${group.map(m =>
-      `<div class="msg ${m[0]==='user'?'user-msg':'ai-msg'}">${m[1]}</div>`
-    ).join('')}</div>`
-  ).join('');
+  const chat=$('#chat');chat.replaceChildren();
+  for(const group of groups.slice(-4).reverse()){
+    const groupEl=document.createElement('div');groupEl.className='chat-group';
+    for(const message of group){
+      const [role,content]=message,el=document.createElement('div');el.className='msg '+(role==='user'?'user-msg':'ai-msg');
+      if(role==='ai'&&content==='제조 DATA 조회 중…'){
+        el.classList.add('is-loading');el.setAttribute('role','status');el.setAttribute('aria-live','polite');
+        const spinner=document.createElement('span');spinner.className='loading-spinner';spinner.setAttribute('aria-hidden','true');
+        const label=document.createElement('span');label.textContent=content;el.append(spinner,label);
+      }else{
+        const metadata=role==='ai'?String(content).match(/^(.*)<small>([\s\S]*)<\/small>\s*$/):null;
+        el.append(document.createTextNode(metadata?metadata[1]:String(content)));
+        if(metadata){const small=document.createElement('small');small.textContent=metadata[2];el.append(small)}
+      }
+      groupEl.append(el);
+    }
+    chat.append(groupEl);
+  }
 
   $('#chat').scrollTop = 0;
 
-  const all=[...chats].sort((a,b)=>b.id-a.id);
-  $('#historyList').innerHTML=all.length?all.map(c=>`<div class="history-item ${c.id===current.id?'active':''}" data-id="${c.id}"><div class="history-title"><b>${c.title}</b><small>${c.messages.length} messages</small></div><span class="history-meta">${c.updated||''}</span></div>`).join(''):'<div class="history-item"><div class="history-title"><small>저장된 이전 대화가 없습니다.</small></div></div>';
-  $$('.history-item[data-id]').forEach(x=>x.onclick=()=>{archiveCurrent();let c=chats.find(c=>String(c.id)===x.dataset.id);if(c){current=JSON.parse(JSON.stringify(c));store();renderChat()}})
+  const all=[...chats].sort((a,b)=>b.id-a.id),history=$('#historyList');history.replaceChildren();
+  if(!all.length){const empty=document.createElement('div'),title=document.createElement('div'),small=document.createElement('small');empty.className='history-item';title.className='history-title';small.textContent='저장된 이전 대화가 없습니다.';title.append(small);empty.append(title);history.append(empty)}
+  for(const conversation of all){const item=document.createElement('div'),title=document.createElement('div'),name=document.createElement('b'),count=document.createElement('small'),meta=document.createElement('span');item.className='history-item '+(conversation.id===current.id?'active':'');item.dataset.id=String(conversation.id);title.className='history-title';name.textContent=conversation.title||'대화';count.textContent=`${conversation.messages?.length||0} messages`;meta.className='history-meta';meta.textContent=conversation.updated||'';title.append(name,count);item.append(title,meta);item.onclick=()=>{archiveCurrent();const selected=chats.find(c=>String(c.id)===item.dataset.id);if(selected){current=JSON.parse(JSON.stringify(selected));store();renderChat()}};history.append(item)}
 }
 function answer(q){return '서버에서 답변을 받지 못했습니다. 연결 상태를 확인한 뒤 다시 질문해 주세요.'}
 $$('.model button').forEach(b=>b.onclick=()=>{variant=b.dataset.v;render()});
@@ -271,7 +285,7 @@ function applyQuestionGraphScope(q){const u=q.toUpperCase(),vm=u.match(/\b(HSV|O
     if(!health.ok) throw new Error('HEALTH_HTTP_'+health.status);
     const hs=await health.json();
     const r=await fetch(API_BASE+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,conversation_id:current.serverId||null,context:{product:'iMEB3',variant,process:'INJECTION'}})});
-    if(!r.ok){let detail='';try{detail=JSON.stringify(await r.json())}catch(_){detail=await r.text()}throw new Error('CHAT_HTTP_'+r.status+' '+detail)}
+    if(!r.ok)throw new Error('CHAT_HTTP_'+r.status)
     const o=await r.json(); current.serverId=o.conversation_id; applyApiContext(o.graph_context||{}); if(o.lot_graph && ['firestore','csv_fallback'].includes(o.lot_graph.storage) && o.lot_graph.read_only===true && !(/(?:20\\d{2}[-/.])?\\d{1,2}[/.-]\\d{1,2}/.test(q)&&/\\b(IV|OV|HSV)\\b/i.test(q))) saveLotGraph(o.lot_graph);
     const providerLabels={LOCAL_ONLY:'Firestore 근거 요약 · 외부 AI 미호출',CODYSAY_CHAT_COMPLETIONS:'Codyssey AI 추가 분석',CODYSAY_FUNCTION_CALLING:'Codyssey AI 추가 분석',FALLBACK_NO_KEY:'규칙 기반 답변 · AI 키 미설정',FALLBACK_AI_ERROR:'규칙 기반 답변 · AI 호출 오류',FALLBACK_EMPTY_ANSWER:'규칙 기반 답변 · AI 응답이 비어 있음',FALLBACK_EMPTY_TOOL_ANSWER:'규칙 기반 답변 · AI 도구 응답이 비어 있음'};
     return o.answer+`<small>Backend 연결 · ${o.storage||hs.storage||'memory'} · 응답 방식 ${providerLabels[o.ai_provider]||o.ai_provider||'확인 필요'}</small>`;
@@ -286,7 +300,18 @@ const local=localGraphAnswer(q);
     return local+`<small>화면에 저장된 그래프 자료 기준 · 서버 API 실패 · 최신 Firestore 갱신 여부 미확인 (${msg})</small>`;
   }
 }
-$('#chatForm').onsubmit=async e=>{e.preventDefault();let q=$('#question').value.trim();if(!q)return;current.messages.push(['user',q]);current.messages.push(['ai','제조 DATA 조회 중…']);if(current.messages.filter(m=>m[0]==='user').length===1)current.title=q.replace(/\n/g,' ').slice(0,30);current.updated=nowLabel();$('#question').value='';autoGrow();renderChat();let a='';try{a=await apiAnswer(q)}catch(err){console.error('[iMEB3 chat request]',err);a='질문 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.'}try{applyQuestionGraphScope(q);render()}catch(err){console.error('[iMEB3 graph scope]',err)}finally{if(current.messages.at(-1)?.[0]==='ai'&&current.messages.at(-1)?.[1]==='제조 DATA 조회 중…')current.messages[current.messages.length-1]=['ai',a||'요청을 완료하지 못했습니다. 다시 시도해 주세요.'];archiveCurrent();store();renderChat()}$('#question').focus()};
+$('#chatForm').onsubmit=async e=>{
+  e.preventDefault();const q=$('#question').value.trim(),send=$('#chatForm button[type="submit"]');if(!q||send.disabled)return;
+  send.disabled=true;send.setAttribute('aria-busy','true');current.messages.push(['user',q],['ai','제조 DATA 조회 중…']);
+  if(current.messages.filter(m=>m[0]==='user').length===1)current.title=q.replace(/\n/g,' ').slice(0,30);
+  current.updated=nowLabel();$('#question').value='';autoGrow();renderChat();
+  let answer='';try{answer=await apiAnswer(q)}catch(err){console.error('[iMEB3 chat request]',err);answer='질문 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.'}
+  try{applyQuestionGraphScope(q);render()}catch(err){console.error('[iMEB3 graph scope]',err)}
+  finally{
+    if(current.messages.at(-1)?.[0]==='ai'&&current.messages.at(-1)?.[1]==='제조 DATA 조회 중…')current.messages[current.messages.length-1]=['ai',answer||'요청을 완료하지 못했습니다. 다시 시도해 주세요.'];
+    archiveCurrent();store();renderChat();send.disabled=false;send.removeAttribute('aria-busy');$('#question').focus();
+  }
+};
 $('#newChat').onclick=()=>{archiveCurrent();current={id:Date.now(),title:'새 사출 분석',updated:nowLabel(),messages:[['ai','새 대화를 시작했습니다. iMEB3 모델·LOT·공정 날짜를 질문하세요.']]};store();renderChat();$('#question').focus()};
 $('#toggleHistory').onclick=()=>{const list=$('#historyList'),hidden=list.classList.toggle('hidden');$('#toggleHistory').textContent=hidden?'대화 목록 펼치기 ▾':'대화 목록 닫기 ▴'};
 window.addEventListener('beforeunload',()=>{archiveCurrent();store()});

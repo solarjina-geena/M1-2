@@ -1,21 +1,24 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>iMEB3 AI Agent · Data</title><style>
-body{font-family:Arial,"Noto Sans KR",sans-serif;margin:0;background:#f2f4f6;color:#17202a}main{max-width:1180px;margin:auto;padding:24px}nav{display:flex;justify-content:space-between;align-items:center}a{color:#1267c4}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.card{background:#fff;border:1px solid #dde2e7;border-radius:12px;padding:16px;margin:14px 0}input,select,button{padding:9px;border:1px solid #ccd3da;border-radius:7px}button{cursor:pointer;background:#17202a;color:#fff}.row{display:flex;gap:7px;flex-wrap:wrap}.summary{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.stat{background:#f6f8fa;padding:10px;border-radius:8px}.stat b{display:block;font-size:18px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #e5e8eb;text-align:left}.scroll{max-height:360px;overflow:auto}.conv{padding:9px;border-bottom:1px solid #eee;cursor:pointer}.messages{white-space:pre-wrap;font-size:12px;background:#f8fafb;padding:12px;border-radius:8px}:root{color-scheme:light}#trendChart svg{width:100%;height:auto;max-height:260px}#trendChart>div{font-size:12px;margin:6px 0 14px}@media(max-width:800px){.grid{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}}body.dark{background:#111820;color:#e7edf3;color-scheme:dark}body.dark .card{background:#1b2631;border-color:#354352}body.dark .stat,body.dark .messages{background:#24313d}body.dark th,body.dark td,body.dark .conv{border-color:#354352}body.dark a{color:#83baff}</style></head><body><main>
+body{font-family:Arial,"Noto Sans KR",sans-serif;margin:0;background:#f2f4f6;color:#17202a}main{max-width:1180px;margin:auto;padding:24px}nav{display:flex;justify-content:space-between;align-items:center}a{color:#1267c4}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.card{background:#fff;border:1px solid #dde2e7;border-radius:12px;padding:16px;margin:14px 0}input,select,button{padding:9px;border:1px solid #ccd3da;border-radius:7px}button{cursor:pointer;background:#17202a;color:#fff}.row{display:flex;gap:7px;flex-wrap:wrap}.summary{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.stat{background:#f6f8fa;padding:10px;border-radius:8px}.stat b{display:block;font-size:18px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #e5e8eb;text-align:left}.scroll{max-height:360px;overflow:auto}.conv{padding:9px;border-bottom:1px solid #eee;cursor:pointer}.messages{white-space:pre-wrap;font-size:12px;background:#f8fafb;padding:12px;border-radius:8px}:root{color-scheme:light}#trendChart svg{width:100%;height:auto;max-height:260px}#trendChart>div{font-size:12px;margin:6px 0 14px}@media(max-width:800px){.grid{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}}body.dark{background:#111820;color:#e7edf3;color-scheme:dark}body.dark .card{background:#1b2631;border-color:#354352}body.dark .stat,body.dark .messages{background:#24313d}body.dark input,body.dark select{background:#24313d;color:#e7edf3;border-color:#526170}body.dark th,body.dark td,body.dark .conv{border-color:#354352}body.dark a{color:#83baff}</style></head><body><main>
 <nav><div><b>iMEB3 AI Agent · 과제 기능 검증</b><div style="font-size:12px;color:#68737d">Firestore CRUD · Summary · Conversation</div></div><a href="./index.html">← AI Dashboard</a></nav>
 <section class="card"><div class="row"><button id="seed">평가용 120건 DATA 생성</button><button id="refresh">새로고침</button><button id="exportCsv">CSV 내보내기</button><button id="exportJson">JSON 내보내기</button><button id="toggleDark" aria-pressed="false">다크 모드</button><span id="status" role="status" aria-live="polite"></span></div></section>
 <section class="card"><h3>데이터 요약</h3><div id="summary" class="summary"></div><h4>생산량 시계열 · 날짜별</h4><div id="trendChart" role="img" aria-label="모델별 날짜 생산량 시계열"></div></section>
 <div class="grid"><section class="card"><h3>데이터 CRUD</h3><form id="form" class="row"><input id="date" type="date" required><input id="value" type="number" step="any" placeholder="value (빈칸=BLANK)"><input id="memo" placeholder="memo"><select id="variant"><option>IV</option><option>OV</option><option>HSV</option></select><button>추가</button></form><form id="editForm" class="row" hidden><input id="editValue" type="number" step="any" placeholder="수정할 value (빈칸=BLANK)"><input id="editMemo" placeholder="수정할 memo"><button type="submit">수정 저장</button><button type="button" id="cancelEdit">취소</button></form><div class="scroll"><table><thead><tr><th>date</th><th>variant</th><th>value</th><th>memo</th><th></th></tr></thead><tbody id="data"></tbody></table></div></section>
 <section class="card"><h3>대화 기록</h3><div class="grid"><div id="convs" class="scroll"></div><div id="messages" class="messages">대화를 선택하세요.</div></div></section></div>
 <script src="./config.js"></script><script>
-const A=(window.API_BASE_URL||'http://127.0.0.1:8000').replace(/\/$/,''); const $=s=>document.querySelector(s); async function j(url,opt){let r=await fetch(A+url,opt);if(!r.ok)throw Error(await r.text());return r.json()}
+const A=(window.API_BASE_URL||'http://127.0.0.1:8000').replace(/\/$/,''); const $=s=>document.querySelector(s); async function j(url,opt){let r=await fetch(A+url,opt);if(!r.ok)throw Error('HTTP_'+r.status);return r.json()}
+async function runAction(work){try{await work();await load()}catch(_){$('#status').textContent='작업에 실패했습니다. 입력을 확인하고 다시 시도해 주세요.'}}
 async function load(){
   $('#status').textContent='데이터를 불러오는 중…';
-  try{
-    let [s,d,c]=await Promise.all([j('/api/data/summary'),j('/api/data'),j('/api/conversations')]);
-    const values=d.filter(x=>['PRODUCTION_QTY','PRODUCTION_QUANTITY'].includes(String(x.metric||'').toUpperCase())&&Number.isFinite(Number(x.value))).map(x=>Number(x.value)).sort((a,b)=>a-b),mid=Math.floor(values.length/2),median=values.length?(values.length%2?values[mid]:(values[mid-1]+values[mid])/2):null;
-    $('#summary').innerHTML=`<div class=stat>기간<b>${s.period}</b></div><div class=stat>생산량 기록 / 전체<b>${s.count} / ${s.total_records}</b></div><div class=stat>평균<b>${s.metrics.average?.toFixed?.(1)??'-'}</b></div><div class=stat>중앙값<b>${median?.toFixed?.(1)??'-'}</b></div><div class=stat>최대<b>${s.metrics.max??'-'}</b></div><div class=stat>추세<b>${s.trend}</b></div>`;
-    renderTrend(d);
-
-    lastData=d; const dataBody=$('#data'); dataBody.replaceChildren();
+  const results=await Promise.allSettled([j('/api/data/summary'),j('/api/data'),j('/api/conversations')]),errors=[];
+  const [summaryResult,dataResult,conversationResult]=results;
+  if(summaryResult.status==='fulfilled'){
+    const s=summaryResult.value,d=dataResult.status==='fulfilled'?dataResult.value:[],values=d.filter(x=>['PRODUCTION_QTY','PRODUCTION_QUANTITY'].includes(String(x.metric||'').toUpperCase())&&x.value!==null&&x.value!==''&&Number.isFinite(Number(x.value))).map(x=>Number(x.value)).sort((a,b)=>a-b),mid=Math.floor(values.length/2),median=values.length?(values.length%2?values[mid]:(values[mid-1]+values[mid])/2):null;
+    const stats=[['기간',s.period],['생산량 기록 / 전체',`${s.count} / ${s.total_records}`],['평균',s.metrics.average?.toFixed?.(1)??'-'],['중앙값',median?.toFixed?.(1)??'-'],['최대',s.metrics.max??'-'],['추세',s.trend]],root=$('#summary');root.replaceChildren();
+    for(const [label,value] of stats){const stat=document.createElement('div'),name=document.createElement('span'),number=document.createElement('b');stat.className='stat';name.textContent=label;number.textContent=String(value??'-');stat.append(name,number);root.append(stat)}
+  }else{$('#summary').textContent='요약을 불러오지 못했습니다.';errors.push('요약 API 오류')}
+  if(dataResult.status==='fulfilled'){
+    const d=dataResult.value;lastData=d;renderTrend(d);const dataBody=$('#data');dataBody.replaceChildren();
     if(!d.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='표시할 데이터가 없습니다.';tr.append(td);dataBody.append(tr)}
     d.slice().reverse().slice(0,100).forEach(x=>{
       const tr=document.createElement('tr');
@@ -25,9 +28,10 @@ async function load(){
       const remove=document.createElement('button');remove.textContent='삭제';remove.onclick=()=>delData(x.id);
       actions.append(edit,document.createTextNode(' '),remove);tr.append(actions);dataBody.append(tr);
     });
-
-    const convs=$('#convs'); convs.replaceChildren();
-    if(!c.length) convs.textContent='저장된 대화 없음';
+  }else{$('#data').textContent='데이터를 불러오지 못했습니다. 연결을 확인하고 새로고침하세요.';$('#trendChart').textContent='시계열 자료를 불러오지 못했습니다.';errors.push('데이터 목록 오류')}
+  if(conversationResult.status==='fulfilled'){
+    const c=conversationResult.value,convs=$('#convs');convs.replaceChildren();
+    if(!c.length)convs.textContent='저장된 대화 없음';
     c.forEach(x=>{
       const item=document.createElement('div');item.className='conv';
       const open=document.createElement('div');open.style.cursor='pointer';open.onclick=()=>openConv(x.id);
@@ -37,11 +41,11 @@ async function load(){
       const remove=document.createElement('button');remove.textContent='삭제';remove.style.marginTop='6px';remove.onclick=()=>delConv(x.id);
       item.append(open,remove);convs.append(item);
     });
-    $('#status').textContent='Backend 연결됨 · 데이터 '+d.length+'건 표시';
-  }catch(e){$('#status').textContent='불러오기 실패: '+e.message;$('#data').innerHTML='<tr><td colspan="5">데이터를 불러오지 못했습니다. 연결을 확인하고 새로고침하세요.</td></tr>';$('#summary').textContent='요약을 불러오지 못했습니다.';$('#convs').textContent='대화를 불러오지 못했습니다.'}
+  }else{$('#convs').textContent='대화를 불러오지 못했습니다.';errors.push('대화 API 오류')}
+  const count=dataResult.status==='fulfilled'?dataResult.value.length:null;$('#status').textContent=errors.length?errors.join(' · ')+' — 일부 화면을 표시하지 못했습니다. 새로고침해 주세요.':'Backend 연결됨 · 데이터 '+count+'건 표시';
 }
 let lastData=[];const currentDark=localStorage.getItem('imeb3ManageDark')==='true';document.body.classList.toggle('dark',currentDark);$('#toggleDark').setAttribute('aria-pressed',String(currentDark));$('#toggleDark').textContent=currentDark?'라이트 모드':'다크 모드';$('#toggleDark').onclick=()=>{const next=!document.body.classList.contains('dark');document.body.classList.toggle('dark',next);localStorage.setItem('imeb3ManageDark',String(next));$('#toggleDark').setAttribute('aria-pressed',String(next));$('#toggleDark').textContent=next?'라이트 모드':'다크 모드'};
-function renderTrend(rows){const colors={IV:'#111923',OV:'#e7ad00',HSV:'#2679d8'},series={};for(const row of rows){const metric=String(row.metric||'').toUpperCase(),variant=String(row.variant||'').toUpperCase(),value=Number(row.value);if(!['PRODUCTION_QTY','PRODUCTION_QUANTITY'].includes(metric)||!colors[variant]||!row.date||!Number.isFinite(value))continue;(series[variant]??=[]).push({date:String(row.date),value})}const all=Object.values(series).flat();if(!all.length){$('#trendChart').innerHTML='<p role="status">시계열을 표시할 생산량 자료가 없습니다.</p>';return}const dates=[...new Set(all.map(x=>x.date))].sort(),min=Math.min(...all.map(x=>x.value)),max=Math.max(...all.map(x=>x.value)),w=760,h=230,p=42,range=max-min||1,x=i=>p+(dates.length<2?(w-2*p)/2:i*(w-2*p)/(dates.length-1)),y=v=>h-p-(v-min)*(h-2*p)/range;let svg=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="날짜별 생산량 line chart"><line x1="${p}" y1="${p}" x2="${p}" y2="${h-p}" stroke="#9aa5af"/><line x1="${p}" y1="${h-p}" x2="${w-p}" y2="${h-p}" stroke="#9aa5af"/><text x="4" y="${p+4}" font-size="10">${max.toLocaleString()}</text><text x="4" y="${h-p}" font-size="10">${min.toLocaleString()}</text>`;for(const [variant,points] of Object.entries(series)){points.sort((a,b)=>a.date.localeCompare(b.date));const path=points.map((v,i)=>`${i?'L':'M'}${x(dates.indexOf(v.date)).toFixed(1)},${y(v.value).toFixed(1)}`).join(' ');svg+=`<path d="${path}" fill="none" stroke="${colors[variant]}" stroke-width="2"/>`}svg+=`<text x="${p}" y="${h-8}" font-size="10">${dates[0]}</text><text x="${w-p}" y="${h-8}" text-anchor="end" font-size="10">${dates.at(-1)}</text></svg><div>${Object.entries(series).map(([v])=>`<span style="margin-right:12px;color:${colors[v]}">● ${v}</span>`).join('')}<small>세로축: EA · 선은 제공된 일자별 기록을 연결</small></div>`;$('#trendChart').innerHTML=svg}
+function renderTrend(rows){const colors={IV:'#111923',OV:'#e7ad00',HSV:'#2679d8'},series={};for(const row of rows){const metric=String(row.metric||'').toUpperCase(),variant=String(row.variant||'').toUpperCase(),value=Number(row.value);if(!['PRODUCTION_QTY','PRODUCTION_QUANTITY'].includes(metric)||!colors[variant]||!Number.isFinite(value)||row.value===null||row.value===''||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(row.date||'')))continue;(series[variant]??=[]).push({date:String(row.date),value})}const all=Object.values(series).flat();if(!all.length){$('#trendChart').innerHTML='<p role="status">시계열을 표시할 생산량 자료가 없습니다.</p>';return}const dates=[...new Set(all.map(x=>x.date))].sort(),min=Math.min(...all.map(x=>x.value)),max=Math.max(...all.map(x=>x.value)),w=760,h=230,p=42,range=max-min||1,x=i=>p+(dates.length<2?(w-2*p)/2:i*(w-2*p)/(dates.length-1)),y=v=>h-p-(v-min)*(h-2*p)/range;let svg=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="날짜별 생산량 line chart" style="color:inherit"><line x1="${p}" y1="${p}" x2="${p}" y2="${h-p}" stroke="#9aa5af"/><line x1="${p}" y1="${h-p}" x2="${w-p}" y2="${h-p}" stroke="#9aa5af"/><text x="4" y="${p+4}" font-size="10" fill="currentColor">${max.toLocaleString()}</text><text x="4" y="${h-p}" font-size="10" fill="currentColor">${min.toLocaleString()}</text>`;for(const [variant,points] of Object.entries(series)){points.sort((a,b)=>a.date.localeCompare(b.date));const path=points.map((v,i)=>`${i?'L':'M'}${x(dates.indexOf(v.date)).toFixed(1)},${y(v.value).toFixed(1)}`).join(' ');svg+=`<path d="${path}" fill="none" stroke="${colors[variant]}" stroke-width="2"/>`}svg+=`<text x="${p}" y="${h-8}" font-size="10" fill="currentColor">${dates[0]}</text><text x="${w-p}" y="${h-8}" text-anchor="end" font-size="10" fill="currentColor">${dates.at(-1)}</text></svg><div>${Object.entries(series).map(([v])=>`<span style="margin-right:12px;color:${colors[v]}">● ${v}</span>`).join('')}<small>세로축: EA · 선은 제공된 일자별 기록을 연결</small></div>`;$('#trendChart').innerHTML=svg}
 function downloadFile(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 $('#exportJson').onclick=()=>downloadFile('imeb3-data.json',JSON.stringify(lastData,null,2),'application/json;charset=utf-8');
 $('#exportCsv').onclick=()=>{const fields=['date','variant','process','metric','value','unit','memo'];const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';downloadFile('imeb3-data.csv','\uFEFF'+[fields.join(','),...lastData.map(row=>fields.map(k=>quote(row[k])).join(','))].join('\r\n'),'text/csv;charset=utf-8')};
@@ -49,29 +53,27 @@ let editingId=null;
 function editData(id,currentValue,currentMemo){
   editingId=id; $('#editValue').value=currentValue==null||currentValue==='null'?'':currentValue; $('#editMemo').value=currentMemo; $('#editForm').hidden=false; $('#editValue').focus();
 }
-$('#editForm').onsubmit=async e=>{e.preventDefault();if(!editingId)return;const value=$('#editValue').value;const memo=$('#editMemo').value;await j('/api/data/'+editingId,{
+$('#editForm').onsubmit=async e=>{e.preventDefault();if(!editingId)return;const value=$('#editValue').value;const memo=$('#editMemo').value;await runAction(()=>j('/api/data/'+editingId,{
     method:'PUT',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       value:value.trim()===''?null:Number(value),
       memo:memo
     })
-  });
-  editingId=null;$('#editForm').hidden=true;load();
+  }).then(()=>{editingId=null;$('#editForm').hidden=true}));
 };
 $('#cancelEdit').onclick=()=>{editingId=null;$('#editForm').hidden=true};
-async function delData(id){await j('/api/data/'+id,{method:'DELETE'});load()}
+async function delData(id){if(!confirm('선택한 데이터를 삭제할까요?'))return;await runAction(()=>j('/api/data/'+id,{method:'DELETE'}))}
 async function delConv(id){
   if(!confirm('이 대화를 삭제할까요?')) return;
 
-  await j('/api/conversations/'+id,{
+  await runAction(()=>j('/api/conversations/'+id,{
     method:'DELETE'
-  });
+  }));
 
   $('#messages').textContent='대화를 선택하세요.';
-  load();
 }
 
-async function openConv(id){let c=await j('/api/conversations/'+id);$('#messages').textContent=(c.messages||[]).map(m=>`${m.role}: ${m.content}`).join('\n\n')}
-$('#form').onsubmit=async e=>{e.preventDefault();await j('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:$('#date').value,value:$('#value').value===''?null:Number($('#value').value),memo:$('#memo').value,variant:$('#variant').value,metric:'PRODUCTION_QTY',unit:'EA'})});e.target.reset();load()};$('#seed').onclick=async()=>{let o=await j('/api/data/seed-demo',{method:'POST'});$('#status').textContent=o.notice+' / 총 '+o.total+'건';load()};$('#refresh').onclick=load;load();
+async function openConv(id){try{let c=await j('/api/conversations/'+id);$('#messages').textContent=(c.messages||[]).map(m=>`${m.role}: ${m.content}`).join('\n\n')}catch(_){$('#messages').textContent='대화 내용을 불러오지 못했습니다. 새로고침 후 다시 선택해 주세요.'}}
+$('#form').onsubmit=async e=>{e.preventDefault();await runAction(()=>j('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:$('#date').value,value:$('#value').value===''?null:Number($('#value').value),memo:$('#memo').value,variant:$('#variant').value,metric:'PRODUCTION_QTY',unit:'EA'})}).then(()=>e.target.reset()))};$('#seed').onclick=async()=>{if(!confirm('평가용 비식별 데이터 120건을 추가할까요?'))return;await runAction(async()=>{const o=await j('/api/data/seed-demo',{method:'POST'});$('#status').textContent=o.notice+' / 총 '+o.total+'건'})};$('#refresh').onclick=load;load();
 </script></main></body></html>
