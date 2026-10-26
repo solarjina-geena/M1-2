@@ -21,7 +21,7 @@
       <article class="card"><h2>Render 백엔드</h2><div id="renderState" class="state">확인 중…</div><div id="renderDetail" class="detail">헬스 API에 연결하고 있습니다.</div><div class="url">https://imeb3-ai-agent-api.onrender.com/api/health</div></article>
       <article class="card"><h2>브라우저 CORS 연결</h2><div id="corsState" class="state">확인 중…</div><div id="corsDetail" class="detail">이 페이지의 출처에서 API를 직접 호출합니다.</div><div id="origin" class="url"></div></article>
       <article class="card"><h2>Firestore 실제 요약 조회</h2><div id="dbState" class="state">확인 중…</div><div id="dbDetail" class="detail">요약 API 응답을 기다리고 있습니다.</div><div class="url">https://imeb3-ai-agent-api.onrender.com/api/data/summary</div></article>
-      <article class="card"><h2>Vercel 프런트 배포</h2><div id="frontState" class="state">정상</div><div class="detail">현재 페이지가 Vercel에서 제공되고 있습니다.</div><div class="url" id="frontUrl"></div></article>
+      <article class="card"><h2>Vercel 프런트 배포</h2><div id="frontState" class="state">확인 중…</div><div id="frontDetail" class="detail"></div><div class="url" id="frontUrl"></div></article>
     </section>
     <p class="note">CORS 카드는 이 페이지 출처에서 Render API 요청이 브라우저에 허용됐는지 보여줍니다. Firestore 카드는 저장소 모드, 전체 건수, 요약 대상 건수와 기간을 표시합니다. 요약 조회는 Firestore 읽기를 실행하며, 백업 기능이 활성화된 경우 오늘 스냅샷 상태도 확인합니다.</p>
     <p class="foot" id="checkedAt"></p>
@@ -31,7 +31,10 @@
     (async()=>{
       const api=(window.API_BASE_URL||'https://imeb3-ai-agent-api.onrender.com').replace(/\/$/,'');
       const $=id=>document.getElementById(id);let failures=0;
-      $('origin').textContent='출처: '+location.origin;$('frontUrl').textContent=location.origin;
+      const onVercel=location.hostname==='m1-2-frontend-dun.vercel.app';
+      $('origin').textContent='출처: '+location.origin;$('frontUrl').textContent='https://m1-2-frontend-dun.vercel.app';
+      $('frontState').textContent=onVercel?'정상':'로컬 진단 화면';
+      $('frontDetail').textContent=onVercel?'현재 페이지가 Vercel에서 제공되고 있습니다.':'현재 출처에서 Render CORS/API를 시험하고 있습니다. 공개 배포는 위 Vercel 링크에서 확인하세요.';
       let health=null;
       try{
         const hr=await fetch(api+'/api/health?status='+Date.now(),{cache:'no-store'});if(!hr.ok)throw Error('health HTTP '+hr.status);health=await hr.json();

@@ -796,7 +796,7 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
         from openai import OpenAI
         base_url = os.getenv('OPENAI_BASE_URL', 'https://copa.codyssey.kr/v1').strip()
         client = OpenAI(api_key=key, base_url=base_url)
-        model = os.getenv('OPENAI_MODEL', 'gpt-5-mini')
+        model = os.getenv('OPENAI_MODEL', 'gpt-5.4-mini')
         max_completion_tokens = int(os.getenv('OPENAI_MAX_OUTPUT_TOKENS', '2000'))
         summary = build_summary(rows)
     except Exception as e:
