@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iMEB3 배포 상태 확인</title>
+  <style>
+    :root{font-family:Inter,"Pretendard","Noto Sans KR",Arial,sans-serif;color:#15202b;background:#eef2f6}*{box-sizing:border-box}body{margin:0;padding:28px}.wrap{max-width:1050px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;margin:8px 0 20px;gap:12px}h1{font-size:26px;margin:0}.sub{color:#627181;margin:5px 0 0}.overall{padding:9px 14px;background:#e7f6ed;color:#176b43;border-radius:99px;font-weight:700;font-size:13px}.overall.bad{background:#fff0ed;color:#a53325}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{background:white;border:1px solid #dce3ea;border-radius:15px;padding:20px;box-shadow:0 6px 20px #1b2a3a0b}.card h2{font-size:15px;margin:0 0 8px}.state{font-size:21px;font-weight:750;margin:8px 0}.detail{font-size:13px;color:#536273;line-height:1.6;white-space:pre-line}.url{font:12px Consolas,monospace;color:#365b83;word-break:break-all;margin-top:12px}.links{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.links a{display:inline-block;background:#121c27;color:#fff;text-decoration:none;border-radius:9px;padding:10px 13px;font-size:13px;font-weight:650}.links a.secondary{background:#fff;color:#26384a;border:1px solid #d5dde5}.note{margin-top:14px;padding:14px 16px;background:#e8eef5;border-radius:11px;color:#435365;font-size:12px;line-height:1.6}.foot{font-size:11px;color:#748191;margin-top:13px}@media(max-width:650px){body{padding:15px}.top{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr}h1{font-size:22px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="top"><div><h1>iMEB3 서비스 연결 상태</h1><p class="sub">브라우저에서 Render와 Firestore API를 직접 확인합니다.</p></div><span id="overall" class="overall">확인 중…</span></header>
+    <nav class="links">
+      <a href="/" target="_blank" rel="noreferrer">Vercel 대시보드</a>
+      <a class="secondary" href="https://imeb3-ai-agent-api.onrender.com/api/health" target="_blank" rel="noreferrer">Render health JSON</a>
+      <a class="secondary" href="https://imeb3-ai-agent-api.onrender.com/api/data/summary" target="_blank" rel="noreferrer">Firestore 요약 JSON</a>
+      <a class="secondary" href="https://imeb3-ai-agent-api.onrender.com/docs" target="_blank" rel="noreferrer">Render Swagger</a>
+    </nav>
+    <section class="grid">
+      <article class="card"><h2>Render 백엔드</h2><div id="renderState" class="state">확인 중…</div><div id="renderDetail" class="detail">헬스 API에 연결하고 있습니다.</div><div class="url">https://imeb3-ai-agent-api.onrender.com/api/health</div></article>
+      <article class="card"><h2>브라우저 CORS 연결</h2><div id="corsState" class="state">확인 중…</div><div id="corsDetail" class="detail">이 페이지의 출처에서 API를 직접 호출합니다.</div><div id="origin" class="url"></div></article>
+      <article class="card"><h2>Firestore 실제 요약 조회</h2><div id="dbState" class="state">확인 중…</div><div id="dbDetail" class="detail">요약 API 응답을 기다리고 있습니다.</div><div class="url">https://imeb3-ai-agent-api.onrender.com/api/data/summary</div></article>
+      <article class="card"><h2>Vercel 프런트 배포</h2><div id="frontState" class="state">정상</div><div class="detail">현재 페이지가 Vercel에서 제공되고 있습니다.</div><div class="url" id="frontUrl"></div></article>
+    </section>
+    <p class="note">CORS 카드는 이 페이지 출처에서 Render API 요청이 브라우저에 허용됐는지 보여줍니다. Firestore 카드는 저장소 모드, 전체 건수, 요약 대상 건수와 기간을 표시합니다. 요약 조회는 Firestore 읽기를 실행하며, 백업 기능이 활성화된 경우 오늘 스냅샷 상태도 확인합니다.</p>
+    <p class="foot" id="checkedAt"></p>
+  </main>
+  <script src="./config.js"></script>
+  <script>
+    (async()=>{
+      const api=(window.API_BASE_URL||'https://imeb3-ai-agent-api.onrender.com').replace(/\/$/,'');
+      const $=id=>document.getElementById(id);let failures=0;
+      $('origin').textContent='출처: '+location.origin;$('frontUrl').textContent=location.origin;
+      let health=null;
+      try{
+        const hr=await fetch(api+'/api/health?status='+Date.now(),{cache:'no-store'});if(!hr.ok)throw Error('health HTTP '+hr.status);health=await hr.json();
+        $('renderState').textContent=health.ok?'정상 · '+health.storage:'응답 오류';$('renderDetail').textContent='저장소 설정: '+health.configured_storage+'\nCSV 대체: '+(health.csv_fallback?'사용':'미사용');
+        $('corsState').textContent='허용 · HTTP '+hr.status;$('corsDetail').textContent='이 브라우저 출처에서 health 요청이 성공했습니다.';
+        const b=health.daily_backup||{};$('renderDetail').textContent+='\n오늘 백업: '+(b.status||'상태 미확인')+(b.date?' ('+b.date+')':'');
+      }catch(e){failures++;$('renderState').textContent='연결 실패';$('renderDetail').textContent=String(e);$('corsState').textContent='CORS/API 실패';$('corsDetail').textContent=String(e)}
+      try{
+        const sr=await fetch(api+'/api/data/summary?status='+Date.now(),{cache:'no-store'});const s=await sr.json();if(!sr.ok)throw Error(s.detail||'summary HTTP '+sr.status);
+        $('dbState').textContent='조회 성공 · '+Number(s.total_records).toLocaleString()+'건';$('dbDetail').textContent='요약 '+Number(s.count).toLocaleString()+'건 · '+s.period+'\n생산량 합계 '+Number(s.metrics.total).toLocaleString()+' · 추세 '+s.trend;
+      }catch(e){failures++;$('dbState').textContent='조회 실패';$('dbDetail').textContent=String(e)}
+      $('overall').textContent=failures?'일부 확인 실패':'연결 정상';$('checkedAt').textContent='확인 시각: '+new Date().toLocaleString('ko-KR')+' · API: '+api;
+    })();
+  </script>
+</body>
+</html>
