@@ -12,12 +12,18 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-6
+      - key: ANTHROPIC_MAX_OUTPUT_TOKENS
+        value: "1000"
       - key: ALLOWED_ORIGINS
         sync: false
       - key: OPENAI_BASE_URL
-        value: https://copa.codyssey.kr/v1
+        sync: false
       - key: OPENAI_MODEL
-        value: gpt-5.4-mini
+        sync: false
       - key: OPENAI_MAX_OUTPUT_TOKENS
         value: "2000"
       - key: DAILY_BACKUP_RETENTION_DAYS

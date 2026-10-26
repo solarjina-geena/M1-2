@@ -782,28 +782,52 @@ def openai_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple[
     if not any((keyword in message for keyword in analysis_keywords)):
         return local_answer, 'LOCAL_ONLY'
     ai_answer, provider = codysay_answer(message, rows, ctx)
-    if provider not in ('CODYSAY_CHAT_COMPLETIONS', 'CODYSAY_FUNCTION_CALLING') or not ai_answer.strip():
+    if provider not in ('ANTHROPIC_MESSAGES', 'OPENAI_RESPONSES', 'CODYSAY_CHAT_COMPLETIONS', 'CODYSAY_FUNCTION_CALLING') or not ai_answer.strip():
         return local_answer, provider
     return local_answer + '\n\n■ AI 추가 분석\n' + ai_answer.strip(), provider
 
 MANUFACTURING_TOOLS = [{'type': 'function', 'function': {'name': 'get_manufacturing_records', 'description': 'iMEB3 제조 데이터에서 날짜, 제품 모델, 공정에 해당하는 생산수량과 불량 및 작업 기록을 조회한다.', 'parameters': {'type': 'object', 'properties': {'date': {'type': 'string', 'description': '생산일자 YYYY-MM-DD'}, 'variant': {'type': 'string', 'enum': ['IV', 'OV', 'HSV', 'ALL'], 'description': '제품 모델'}, 'process': {'type': 'string', 'enum': ['BA', 'CA', 'INJECTION', 'STITCHING', 'PATROL', 'ALL'], 'description': '조회할 제조 공정'}}, 'required': ['date', 'variant', 'process']}}}]
 
 def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple[str, str]:
+    anthropic_key = os.getenv('ANTHROPIC_API_KEY', '').strip()
+    if anthropic_key:
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=anthropic_key)
+            model = os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
+            max_tokens = int(os.getenv('ANTHROPIC_MAX_OUTPUT_TOKENS', os.getenv('OPENAI_MAX_OUTPUT_TOKENS', '2000')))
+            summary = build_summary(rows)
+            evidence = [{'date': r.get('date'), 'variant': r.get('variant'), 'process': r.get('process'), 'metric': r.get('metric'), 'value': r.get('value'), 'unit': r.get('unit'), 'verification_status': r.get('verification_status')} for r in rows[:20]]
+            instructions = SYSTEM + '\n\n[사용자 데이터 요약]\n' + json.dumps(summary, ensure_ascii=False) + '\n\n[질문 관련 DATA]\n' + json.dumps(evidence, ensure_ascii=False) + '\nHUMAN_VERIFIED, SOURCE_READ, DERIVED 등 내부 상태명은 출력하지 마라. 사람 확인값은 ✓, 계산값은 ≈로 표시하고, 기존 조회 수치는 반복하지 마라. 기존 제조 데이터 조회 결과를 반복하지 말고 추가 분석만 작성하라. 분석은 최대 3문장, 250자 이내로 작성하라. 내부 레코드 ID, run_id, 영문 필드명은 출력하지 마라. 근거 없는 원인이나 불량률은 추정하지 마라. BA와 CA는 연속 공정이므로 생산수량을 합산하여 총생산량이라고 표현하지 마라.'
+            response = client.messages.create(model=model, max_tokens=max_tokens, system=instructions, messages=[{'role': 'user', 'content': message}])
+            answer = ''.join(block.text for block in response.content if getattr(block, 'type', '') == 'text').strip()
+            if answer:
+                print('Anthropic Messages API response length:', len(answer))
+                return answer, 'ANTHROPIC_MESSAGES'
+            return fallback_answer(message, rows, ctx), 'FALLBACK_EMPTY_ANSWER'
+        except Exception as e:
+            import traceback
+            print('Anthropic API error type:', type(e).__name__)
+            print('Anthropic API error detail:', str(e)[:1000])
+            for frame in traceback.extract_tb(e.__traceback__):
+                if frame.filename.endswith('main.py'):
+                    print('  line:', frame.lineno, '| function:', frame.name)
+            return fallback_answer(message, rows, ctx), 'FALLBACK_AI_ERROR'
     key = os.getenv('OPENAI_API_KEY', '').strip()
     if not key:
         return fallback_answer(message, rows, ctx), 'FALLBACK_NO_KEY'
     try:
         from openai import OpenAI
-        base_url = os.getenv('OPENAI_BASE_URL', 'https://copa.codyssey.kr/v1').strip()
-        client = OpenAI(api_key=key, base_url=base_url)
-        model = os.getenv('OPENAI_MODEL', 'gpt-5.4-mini')
+        base_url = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1').strip()
+        client = OpenAI(api_key=key, base_url=base_url) if base_url else OpenAI(api_key=key)
+        model = os.getenv('OPENAI_MODEL', 'gpt-5-mini')
         max_completion_tokens = int(os.getenv('OPENAI_MAX_OUTPUT_TOKENS', '2000'))
         summary = build_summary(rows)
     except Exception as e:
         import traceback
-        print('Codyssey API error type:', type(e).__name__)
-        print('Codyssey API error detail:', str(e)[:1000])
-        print('Codyssey API error location:')
+        print('AI API setup error type:', type(e).__name__)
+        print('AI API setup error detail:', str(e)[:1000])
+        print('AI API setup error location:')
         for frame in traceback.extract_tb(e.__traceback__):
             if frame.filename.endswith('main.py'):
                 print('  line:', frame.lineno, '| function:', frame.name)
@@ -811,7 +835,13 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any]) -> tuple
     try:
         evidence = [{'date': r.get('date'), 'variant': r.get('variant'), 'process': r.get('process'), 'metric': r.get('metric'), 'value': r.get('value'), 'unit': r.get('unit'), 'verification_status': r.get('verification_status')} for r in rows[:20]]
         instructions = SYSTEM + '\n\n[사용자 데이터 요약]\n' + json.dumps(summary, ensure_ascii=False) + '\n\n[질문 관련 DATA]\n' + json.dumps(evidence, ensure_ascii=False) + '\nHUMAN_VERIFIED, SOURCE_READ, DERIVED 등 내부 상태명은 출력하지 마라. 사람 확인값은 ✓, 계산값은 ≈로 표시하고, 기존 조회 수치는 반복하지 마라.' + '\n기존 제조 데이터 조회 결과를 반복하지 말고 추가 분석만 작성하라.' + '\n분석은 최대 3문장, 250자 이내로 작성하라.' + '\n내부 레코드 ID, run_id, 영문 필드명은 출력하지 마라.' + '\n원본 수치와 계산값을 구분하고, 근거 없는 원인이나 불량률은 추정하지 마라.' + '\nBA와 CA는 연속 공정이므로 생산수량을 합산하여 총생산량이라고 표현하지 마라.' + '\n서로 다른 공정의 불량수량을 합산하여 전체 불량률을 계산하지 마라. 공정별 수량 차이는 재공품 및 공정 흐름 확인 없이 손실로 단정하지 마라.'
-        import time
+        if 'codyssey.kr' not in base_url.lower():
+            resp = client.responses.create(model=model, instructions=instructions, input=message, max_output_tokens=max_completion_tokens)
+            answer = (resp.output_text or '').strip()
+            if not answer:
+                return fallback_answer(message, rows, ctx), 'FALLBACK_EMPTY_ANSWER'
+            print('OpenAI Responses API response length:', len(answer))
+            return answer, 'OPENAI_RESPONSES'
         ai_start = time.perf_counter()
         resp = client.chat.completions.create(model=model, messages=[{'role': 'system', 'content': instructions}, {'role': 'user', 'content': message}], max_completion_tokens=max_completion_tokens)
         print('Codyssey API elapsed seconds:', round(time.perf_counter() - ai_start, 2))

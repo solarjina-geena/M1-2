@@ -46,7 +46,7 @@
 - 데이터 기반 AI 채팅: `POST /api/chat`
   - Firestore/Memory의 관련 데이터 조회
   - `/api/data/summary`와 관련 데이터 Context 주입
-  - `OPENAI_API_KEY`와 Codyssey API 주소가 있으면 Codyssey Chat Completions API 사용
+  - `ANTHROPIC_API_KEY`가 설정되면 Claude Messages API 사용, 아니면 `OPENAI_API_KEY`로 OpenAI Responses API 사용
   - 키가 없거나 AI 호출 실패 시 Evidence 기반 fallback (없는 값 생성 금지)
   - 대화 자동 저장
 - 데이터 CRUD
@@ -77,7 +77,7 @@ flowchart LR
     F -->|질문·관리 요청| A[FastAPI]
     A -->|입력 검증·요약/자료 조회| D[(Firestore)]
     D --> A
-    A -->|분석 질문일 때| C[Codyssey Chat Completions]
+    A -->|분석 질문일 때| C[Claude 또는 OpenAI API]
     C --> A
     A -->|답변 저장·대화 이력| D
     A --> F
@@ -85,9 +85,9 @@ flowchart LR
 
 - 사용자는 자연어로 제조 데이터를 질문하거나 관리 화면에서 기록을 다룹니다. 브라우저는 FastAPI에 요청하고, FastAPI가 Firestore에서 요약과 질문 관련 기록을 가져와 답변 근거로 사용합니다.
 - Pydantic 요청 모델은 날짜 형식, 숫자, 제품 variant 등 입력을 서버 저장 전에 검사해 잘못된 값이 DB로 들어가는 것을 막습니다.
-- Codyssey는 분석이 필요한 질문에만 추가 호출합니다. 서버는 제조 데이터 요약과 관련 근거를 함께 전달하며, 응답이 실패하면 근거 기반 대체 답변을 반환하고 실제 공급자 상태를 구분해 기록합니다.
+- OpenAI는 분석이 필요한 질문에만 추가 호출합니다. 서버는 제조 데이터 요약과 관련 근거를 함께 전달하며, 응답이 실패하면 근거 기반 대체 답변을 반환하고 실제 공급자 상태를 구분해 기록합니다.
 - 질문과 답변은 `conversations`에 저장되어 관리 화면에서 대화를 선택하면 상세 API로 메시지를 다시 불러옵니다. `data`, `conversations`, `reviews`는 각각 Firestore 컬렉션의 문서로 저장됩니다.
-- Firebase 서비스 계정과 Codyssey 키는 백엔드 환경 변수에만 둡니다. CORS는 `ALLOWED_ORIGINS`에 적힌 프론트 주소만 허용합니다.
+- Firebase 서비스 계정과 AI API 키는 백엔드 환경 변수에만 둡니다. CORS는 `ALLOWED_ORIGINS`에 적힌 프론트 주소만 허용합니다.
 - Render Free가 잠든 경우 `warmup.html`의 health 확인으로 시연 전에 먼저 기동할 수 있습니다. `/api/health`는 서버와 저장소 설정 상태를 확인하며, Firestore 자료 읽기 성공 여부는 별도의 데이터 API로 확인합니다.
 
 ## 과제용 100개 이상 시계열 데이터
@@ -137,20 +137,24 @@ ALLOWED_ORIGINS=http://localhost:5500,http://127.0.0.1:5500,https://YOUR-VERCEL-
 FIREBASE_SERVICE_ACCOUNT_JSON={...서비스계정 JSON 전체...}
 # 또는
 FIREBASE_SERVICE_ACCOUNT_PATH=/path/to/serviceAccount.json
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-sonnet-4-6
+ANTHROPIC_MAX_OUTPUT_TOKENS=1000
+# Claude 키가 없을 때 선택적으로 OpenAI 호환 경로 사용
 OPENAI_API_KEY=...
-OPENAI_BASE_URL=https://copa.codyssey.kr/v1
-OPENAI_MODEL=gpt-5.4-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-5-mini
 OPENAI_MAX_OUTPUT_TOKENS=2000
 DAILY_BACKUP_RETENTION_DAYS=7
 ```
 
-`OPENAI_MAX_OUTPUT_TOKENS`는 Codyssey Chat Completions 요청의 `max_completion_tokens`에 대응합니다. 추론 토큰을 사용하는 모델에서는 추론 토큰과 답변 토큰이 이 한도를 함께 사용합니다. 앱과 같은 프롬프트로 500 한도를 시험했을 때 답변이 잘리고 `finish_reason=length`가 확인되어 2000으로 설정했습니다.
+`ANTHROPIC_API_KEY`가 있으면 Claude가 우선 사용됩니다. 키는 백엔드 `.env` 또는 Render 비밀 환경변수에만 넣습니다. `ANTHROPIC_MODEL`과 출력 토큰 상한은 필요에 따라 조정합니다. Claude 키가 없으면 OpenAI 경로를 사용할 수 있습니다.
 
 `DAILY_BACKUP_RETENTION_DAYS`는 Firestore의 앱 수준 일일 스냅샷 보관 일수이며 기본값은 7일입니다. 스냅샷은 Firestore 읽기 성공 후 하루에 한 번 생성됩니다.
 
 복구할 때는 `backend` 폴더에서 `python restore_daily_snapshot.py YYYY-MM-DD`로 먼저 누락 문서 수를 미리 봅니다. 검토 후 `python restore_daily_snapshot.py YYYY-MM-DD --apply`를 실행하면 Firestore `data`에 현재 없는 문서만 생성합니다. 이미 있는 문서는 덮어쓰지 않습니다. 복원도 Firestore 쓰기 한도를 사용하므로 일일 한도 초기화 후 실행해야 합니다.
 
-Codyssey API를 사용하며, Python `openai` SDK의 Chat Completions 형식으로 호출합니다. `OPENAI_BASE_URL`은 Codyssey API 주소이고, 실제 호출 지점은 `backend/app/main.py`의 `codysay_answer()`입니다.
+과제 원본은 OpenAI Responses API를 사용합니다. Claude를 선택한 경우 Anthropic Messages API를 직접 호출합니다. Render에는 `ANTHROPIC_API_KEY`를 비밀값으로 등록합니다. 기존 Codyssey 호환 경로는 `OPENAI_BASE_URL=https://copa.codyssey.kr/v1` 설정 때 사용됩니다. 실제 호출 지점은 `backend/app/main.py`의 `codysay_answer()`입니다.
 
 Frontend / Vercel:
 
