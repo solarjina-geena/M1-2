@@ -634,6 +634,7 @@ def list_reviews(status: str | None=None):
     return [r for r in rows if status is None or r.get('status') == status]
 
 SYSTEM = '당신은 iMEB3 제조 품질·Traceability AI Agent다.\n원본 Evidence와 사람의 판단을 엄격히 분리한다.\nProvenance 우선순위는 HUMAN_VERIFIED > SOURCE_READ > DERIVED이다.\nBLANK를 0으로 만들지 말고, 없는 값을 만들지 말라.\nMES와 작업일보를 임의로 혼합하지 말라.\n생산 RUN 식별자는 YYYYMMDD{D|N}{sequence}이며 날짜만으로 생산 Event를 확정하지 말라.\n\n중요한 Provenance 규칙:\n- verification_status가 DEMO_DATA인 레코드는 평가용 비식별 샘플 데이터다.\n- DEMO_DATA를 HUMAN_VERIFIED 또는 SOURCE_READ라고 표현하지 말라.\n- DEMO_DATA에서 계산한 합계, 평균, 최대, 최소, 추세는 DEMO_DATA 기반 DERIVED 통계라고 명시하라.\n- DEMO_DATA는 실제 회사 생산실적이나 원본 제조 Evidence라고 표현하지 말라.\n- provenance/value_source와 verification_status가 충돌하면 실제 상태를 임의로 승격하지 말라.\n\n답변은 짧고 현장 사용자가 이해하기 쉬운 한국어로 한다.'
+SYSTEM += '\n이전 대화에서 사용자가 직접 정한 별칭·선호·설정은 대화 문맥으로 답하라. 이를 Firestore에서 검증된 제조 사실처럼 표현하지 말라. 후속 질문은 이전 사용자·AI 메시지를 참고해 이어서 답하라.'
 
 def infer_graph_context(text: str, current: dict[str, Any]):
     c = dict(current or {})
@@ -786,10 +787,10 @@ def conversation_history_messages(history: list[dict] | None) -> list[dict[str, 
 
 def openai_answer(message: str, rows: list[dict], ctx: dict[str, Any], history: list[dict] | None = None) -> tuple[str, str]:
     local_answer = fallback_answer(message, rows, ctx)
-    if not rows:
+    if not rows and not history:
         return local_answer, 'LOCAL_ONLY'
     analysis_keywords = ('분석', '비교', '추세', '원인', '상관', '왜', '평가', '개선', '예측', '차이')
-    if not any((keyword in message for keyword in analysis_keywords)):
+    if not history and not any((keyword in message for keyword in analysis_keywords)):
         return local_answer, 'LOCAL_ONLY'
     ai_answer, provider = codysay_answer(message, rows, ctx, history)
     if provider not in ('ANTHROPIC_MESSAGES', 'OPENAI_RESPONSES', 'CODYSAY_CHAT_COMPLETIONS', 'CODYSAY_FUNCTION_CALLING') or not ai_answer.strip():
