@@ -1,3 +1,4 @@
 -r requirements-core.txt
 -r requirements-firestore.txt
 -r requirements-ai.txt
+-r requirements-mcp.txt

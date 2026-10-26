@@ -83,6 +83,27 @@ CRUD 화면에서 임시 `Codex CRUD 검증` 행을 추가하고 값 `12345`에�
 - Render 시연 사전 기동 페이지 (`warmup.html`)
 - Firestore 조회 성공 후 하루 1회 `data` 컬렉션 백업 스냅샷 (`daily_backups`, 기본 최근 7일)
 
+## 보너스 기능
+
+- **Function Calling:** Codyssey Chat Completions 요청에 `get_manufacturing_records` 읽기 전용 도구 스키마를 전달합니다. 모델이 날짜·제품 모델·공정을 지정해 도구를 호출하면 서버가 Firestore 기록을 조회하고 결과를 전달해 후속 답변을 생성합니다. 날짜와 허용 모델·공정 값을 검증하며, 실제 Codyssey 모델 도구 호출은 배포 검증 후 완료로 표시합니다.
+- **MCP Server:** `backend/mcp_server.py`가 상태, Firestore 연결·기록 수, 제조 기록 조회 도구를 MCP stdio로 제공합니다. 로컬 MCP 클라이언트에서 실행하려면 Python 의존성을 설치하고 Firestore 서비스 계정 환경변수를 설정한 뒤 `python backend/mcp_server.py`를 command로 등록합니다. 서비스 계정 값은 클라이언트 설정 파일이나 저장소에 넣지 않습니다.
+- **인사이트와 UX:** 관리 화면에서 생산량 중앙값을 표시하고 날짜별 IV/OV/HSV 생산량 라인 차트를 제공합니다. 조회된 데이터는 CSV 또는 JSON으로 다운로드할 수 있고 다크 모드를 전환할 수 있습니다. 관리 화면의 빈 데이터·API 오류 상태도 안내합니다.
+
+MCP 및 AI 조회 흐름:
+
+```mermaid
+flowchart LR
+    U[사용자 질문] --> A[FastAPI / Codyssey]
+    A -->|도구 스키마 전달| L[Codyssey 모델]
+    L -->|get_manufacturing_records 호출| A
+    A -->|읽기 전용 조회| F[(Firestore)]
+    F --> A -->|도구 결과를 포함한 후속 응답| U
+    C[외부 MCP 클라이언트] -->|stdio / MCP tools| M[backend/mcp_server.py]
+    M -->|읽기 전용 조회| F
+```
+
+실제 모델의 Function Calling 성공 및 외부 MCP 클라이언트의 연결·호출 결과는 보너스 제출 전에 별도 실연으로 기록합니다.
+
 ## 과제 발표용 동작 설명
 
 ```mermaid

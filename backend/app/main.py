@@ -858,7 +858,24 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any], history:
             return answer, 'OPENAI_RESPONSES'
         ai_start = time.perf_counter()
         chat_messages = [{'role': 'system', 'content': instructions}, *history_messages, {'role': 'user', 'content': message}]
-        resp = client.chat.completions.create(model=model, messages=chat_messages, max_completion_tokens=max_completion_tokens)
+        manufacturing_tool = {
+            'type': 'function',
+            'function': {
+                'name': 'get_manufacturing_records',
+                'description': 'Firestore의 제조 기록을 날짜, 제품 모델, 공정으로 읽기 전용 조회합니다.',
+                'parameters': {
+                    'type': 'object',
+                    'properties': {
+                        'date': {'type': 'string', 'description': 'YYYY-MM-DD 형식의 기준 날짜'},
+                        'variant': {'type': 'string', 'enum': ['IV', 'OV', 'HSV', 'ALL']},
+                        'process': {'type': 'string', 'enum': ['BA', 'CA', 'INJECTION', 'STITCHING', 'PATROL', 'ALL']},
+                    },
+                    'required': ['date', 'variant', 'process'],
+                    'additionalProperties': False,
+                },
+            },
+        }
+        resp = client.chat.completions.create(model=model, messages=chat_messages, tools=[manufacturing_tool], tool_choice='auto', max_completion_tokens=max_completion_tokens)
         print('Codyssey API elapsed seconds:', round(time.perf_counter() - ai_start, 2))
         tool_calls = resp.choices[0].message.tool_calls or []
         if tool_calls:
@@ -870,6 +887,12 @@ def codysay_answer(message: str, rows: list[dict], ctx: dict[str, Any], history:
                 date = args.get('date', '')
                 variant = args.get('variant', 'ALL')
                 process = args.get('process', 'ALL')
+                if not re.fullmatch(r'20\d{2}-\d{2}-\d{2}', date):
+                    return ('', 'FALLBACK_INVALID_TOOL')
+                try:
+                    datetime.strptime(date, '%Y-%m-%d')
+                except ValueError:
+                    return ('', 'FALLBACK_INVALID_TOOL')
                 if variant not in ('IV', 'OV', 'HSV', 'ALL'):
                     return ('', 'FALLBACK_INVALID_TOOL')
                 if process not in ('BA', 'CA', 'INJECTION', 'STITCHING', 'PATROL', 'ALL'):
