@@ -47,6 +47,7 @@ _READ_CACHE_TTL_SECONDS = max(60, int(os.getenv('FIRESTORE_READ_CACHE_TTL_SECOND
 _READ_CACHE = {}
 _READ_CACHE_LOCK = threading.Lock()
 _FIRESTORE_READ_BACKOFF_UNTIL = 0.0
+_FIRESTORE_READ_RETRY_SECONDS = max(60, int(os.getenv('FIRESTORE_READ_RETRY_SECONDS', '600')))
 _LAST_FIRESTORE_READ_ERROR = None
 _DAILY_BACKUP_RETENTION_DAYS = max(2, int(os.getenv('DAILY_BACKUP_RETENTION_DAYS', '7')))
 _DAILY_BACKUP_LOCK = threading.Lock()
@@ -188,7 +189,7 @@ def all_docs(col):
                     if col == 'data':
                         rows = load_csv_fallback()
                         ACTIVE_DATA_SOURCE = 'csv_fallback'
-                        _FIRESTORE_READ_BACKOFF_UNTIL = time.monotonic() + _READ_CACHE_TTL_SECONDS
+                        _FIRESTORE_READ_BACKOFF_UNTIL = time.monotonic() + _FIRESTORE_READ_RETRY_SECONDS
                     else:
                         raise
                 else:
@@ -544,6 +545,7 @@ def health():
             'csv_fallback': ACTIVE_DATA_SOURCE == 'csv_fallback',
             'firestore_read_error': _LAST_FIRESTORE_READ_ERROR,
             'firestore_read_cache_ttl_seconds': _READ_CACHE_TTL_SECONDS,
+            'firestore_read_retry_seconds': _FIRESTORE_READ_RETRY_SECONDS,
             'csv_fallback_info': _CSV_FALLBACK_INFO if ACTIVE_DATA_SOURCE == 'csv_fallback' else None,
             'daily_backup': {'enabled': DB_MODE == 'firestore', 'status': _DAILY_BACKUP_STATUS,
                              'date': _DAILY_BACKUP_DATE, 'retention_days': _DAILY_BACKUP_RETENTION_DAYS}}

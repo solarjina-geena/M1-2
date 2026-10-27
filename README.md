@@ -77,7 +77,7 @@ CRUD 화면에서 임시 `Codex CRUD 검증` 행을 추가하고 값 `12345`에�
   - `GET /api/conversations/{id}`
   - `DELETE /api/conversations/{id}`
 - Firestore Adapter + 로컬 Memory fallback
-- Firestore 조회 결과를 프로세스별 1시간 캐시해 반복 전체 목록 읽기를 줄입니다. 앱을 통한 쓰기·수정·삭제는 관련 캐시를 바로 비웁니다 (`FIRESTORE_READ_CACHE_TTL_SECONDS`).
+- Firestore 조회 결과를 프로세스별 1시간 캐시해 반복 전체 목록 읽기를 줄입니다. 앱을 통한 쓰기·수정·삭제는 관련 캐시를 바로 비웁니다 (`FIRESTORE_READ_CACHE_TTL_SECONDS`). 할당량 오류 뒤 재시도는 기본 10분 간격입니다 (`FIRESTORE_READ_RETRY_SECONDS`).
 - FastAPI Swagger `/docs`
 - Vanilla HTML/CSS/JavaScript Frontend
 - 기존 iMEB3 제조 Dashboard
