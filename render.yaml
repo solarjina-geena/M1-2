@@ -30,3 +30,5 @@ services:
         value: "2000"
       - key: DAILY_BACKUP_RETENTION_DAYS
         value: "7"
+      - key: FIRESTORE_READ_CACHE_TTL_SECONDS
+        value: "3600"

@@ -43,7 +43,7 @@ FIRESTORE_EXPORT_CSV = '20260801-20260930_firestore_unified.csv'
 ACTIVE_DATA_SOURCE = 'firestore' if DB_MODE == 'firestore' else 'memory'
 _CSV_FALLBACK_CACHE = None
 _CSV_FALLBACK_INFO = {'record_count': 0, 'skipped_enrich_without_base': 0, 'corrections_applied': 0, 'corrections_already_present': 0}
-_READ_CACHE_TTL_SECONDS = 60
+_READ_CACHE_TTL_SECONDS = max(60, int(os.getenv('FIRESTORE_READ_CACHE_TTL_SECONDS', '3600')))
 _READ_CACHE = {}
 _READ_CACHE_LOCK = threading.Lock()
 _FIRESTORE_READ_BACKOFF_UNTIL = 0.0

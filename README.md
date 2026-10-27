@@ -77,10 +77,12 @@ CRUD 화면에서 임시 `Codex CRUD 검증` 행을 추가하고 값 `12345`에�
   - `GET /api/conversations/{id}`
   - `DELETE /api/conversations/{id}`
 - Firestore Adapter + 로컬 Memory fallback
+- Firestore 조회 결과를 프로세스별 1시간 캐시해 반복 전체 목록 읽기를 줄입니다. 앱을 통한 쓰기·수정·삭제는 관련 캐시를 바로 비웁니다 (`FIRESTORE_READ_CACHE_TTL_SECONDS`).
 - FastAPI Swagger `/docs`
 - Vanilla HTML/CSS/JavaScript Frontend
 - 기존 iMEB3 제조 Dashboard
 - 데이터 CRUD / Summary / Conversation 관리 화면 (`manage.html`)
+- 관리 API 변경 요청은 Render `ADMIN_API_TOKEN` Bearer 인증을 요구합니다. 읽기 화면은 공개이며, 관리 토큰은 Vercel 파일에 저장하지 않습니다.
 - Render / Vercel 배포 설정
 - Render 시연 사전 기동 페이지 (`warmup.html`)
 - Firestore 조회 성공 후 하루 1회 `data` 컬렉션 백업 스냅샷 (`daily_backups`, 기본 최근 7일)
