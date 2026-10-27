@@ -47,6 +47,7 @@ _READ_CACHE_TTL_SECONDS = 60
 _READ_CACHE = {}
 _READ_CACHE_LOCK = threading.Lock()
 _FIRESTORE_READ_BACKOFF_UNTIL = 0.0
+_LAST_FIRESTORE_READ_ERROR = None
 _DAILY_BACKUP_RETENTION_DAYS = max(2, int(os.getenv('DAILY_BACKUP_RETENTION_DAYS', '7')))
 _DAILY_BACKUP_LOCK = threading.Lock()
 _DAILY_BACKUP_DATE = None
@@ -161,7 +162,7 @@ def load_csv_fallback():
     return [dict(row) for row in rows]
 
 def all_docs(col):
-    global ACTIVE_DATA_SOURCE, _FIRESTORE_READ_BACKOFF_UNTIL
+    global ACTIVE_DATA_SOURCE, _FIRESTORE_READ_BACKOFF_UNTIL, _LAST_FIRESTORE_READ_ERROR
     if DB_MODE == 'firestore':
         if ACTIVE_DATA_SOURCE == 'csv_fallback' and col != 'data':
             return list(MEM.setdefault(col, {}).values())
@@ -177,10 +178,13 @@ def all_docs(col):
                 return [dict(row) for row in cached[1]]
         try:
             rows = [d.to_dict() for d in firestore_db.collection(col).stream(timeout=10, retry=None)]
+            _LAST_FIRESTORE_READ_ERROR = None
         except Exception as exc:
             try:
                 from google.api_core.exceptions import (DeadlineExceeded, ResourceExhausted, ServiceUnavailable)
                 if isinstance(exc, (ResourceExhausted, ServiceUnavailable, DeadlineExceeded)):
+                    _LAST_FIRESTORE_READ_ERROR = {'type': type(exc).__name__, 'observed_at': now()}
+                    print('Firestore read unavailable:', type(exc).__name__, str(exc)[:300])
                     if col == 'data':
                         rows = load_csv_fallback()
                         ACTIVE_DATA_SOURCE = 'csv_fallback'
@@ -538,6 +542,7 @@ def workbook_evidence():
 def health():
     return {'ok': True, 'storage': ACTIVE_DATA_SOURCE, 'configured_storage': DB_MODE,
             'csv_fallback': ACTIVE_DATA_SOURCE == 'csv_fallback',
+            'firestore_read_error': _LAST_FIRESTORE_READ_ERROR,
             'csv_fallback_info': _CSV_FALLBACK_INFO if ACTIVE_DATA_SOURCE == 'csv_fallback' else None,
             'daily_backup': {'enabled': DB_MODE == 'firestore', 'status': _DAILY_BACKUP_STATUS,
                              'date': _DAILY_BACKUP_DATE, 'retention_days': _DAILY_BACKUP_RETENTION_DAYS}}
