@@ -543,6 +543,7 @@ def health():
     return {'ok': True, 'storage': ACTIVE_DATA_SOURCE, 'configured_storage': DB_MODE,
             'csv_fallback': ACTIVE_DATA_SOURCE == 'csv_fallback',
             'firestore_read_error': _LAST_FIRESTORE_READ_ERROR,
+            'firestore_read_cache_ttl_seconds': _READ_CACHE_TTL_SECONDS,
             'csv_fallback_info': _CSV_FALLBACK_INFO if ACTIVE_DATA_SOURCE == 'csv_fallback' else None,
             'daily_backup': {'enabled': DB_MODE == 'firestore', 'status': _DAILY_BACKUP_STATUS,
                              'date': _DAILY_BACKUP_DATE, 'retention_days': _DAILY_BACKUP_RETENTION_DAYS}}
