@@ -14,10 +14,13 @@
 - Swagger: [https://imeb3-ai-agent-api.onrender.com/docs](https://imeb3-ai-agent-api.onrender.com/docs)
 - 관리 화면: [https://m1-2-frontend-dun.vercel.app/manage.html](https://m1-2-frontend-dun.vercel.app/manage.html)
 - 시연 전 Render 사전 준비 페이지: [https://m1-2-frontend-dun.vercel.app/warmup](https://m1-2-frontend-dun.vercel.app/warmup)
+- 과제 진척도: [M1-2 과제 진척도](M1-2_과제진척도_2026-10-18.md)
+- 발표용 개념 설명: [시계열 분석·Firestore·API·배포 핵심 개념](docs/발표용_핵심개념.md)
+- 최종 인수 체크리스트: [M1-2 미션 체크리스트 §13·§15](M1-2과제%20미션.md)
 
-**2026-10-26 실시간 확인:** Render `/api/health`는 `storage=firestore`, `csv_fallback=false`를 반환했고 `/api/data/summary`는 전체 1,086건, 요약 대상 250건을 반환했습니다. 백업 상태는 배포 재시작 후 `not_run`으로 확인했습니다. CORS에서 로컬 대시보드 출처가 빠진 문제를 수정해 `localhost:5500`과 `127.0.0.1:5500`을 허용했고 Render 응답의 `Access-Control-Allow-Origin` 헤더를 확인했습니다. Vercel 브라우저에서 Codyssey 분석 채팅 성공, Firestore 대화 저장 및 재조회를 확인하고 임시 데이터 UI 추가·수정·삭제 후 기준 건수를 복구했습니다.
+**2026-10-27 채팅 재조회 확인:** Vercel 대시보드에서 저장된 대화를 다시 열어 Firestore 요약과 Codyssey 추가 분석 응답을 확인했습니다. `docs/screenshots/chat-firestore-codyssey-2026-10-27.png`에 질문·요약·AI 분석과 `Backend 연결 · firestore · 응답 방식 Codyssey AI 추가 분석` 표시가 함께 보입니다. 화면에서 전체 1,086건, 수량 기록 250건, 기간 2026-08-11~2026-09-30, 평균 15,825.6 EA를 확인했습니다. 앞선 배포 점검에서 CRUD 후 기준 건수 복구도 확인했습니다.
 
-**최신 재확인 메모:** 보너스 기능 커밋 `c83129f` 배포 뒤 Vercel 관리 화면에서 새 기능 표시를 확인했습니다. 이후 Render `/api/health`는 Firestore 모드였지만 읽기 전용 `/api/data/summary`와 채팅 요청이 HTTP 503을 반환했습니다. 따라서 그 시점의 배포 Firestore/AI 기능은 정상이라고 단정하지 않으며, 할당량·백엔드 상태가 복구된 뒤 다시 확인해야 합니다.
+**과거 재확인 메모(2026-10-26):** 당시에는 Render `/api/data/summary`와 채팅 요청이 HTTP 503을 반환했습니다. 이 기록은 과거 상태이며 2026-10-27 Vercel에서 저장 대화를 재조회해 Firestore 요약과 Codyssey 추가 분석 표시를 확인한 결과로 갱신합니다.
 
 2026-10-24 상태 기록은 당시 관측값입니다. 그날은 Firestore 일일 한도 제한으로 요약 조회가 실패했습니다. 2026-10-26 앞선 실행에서는 백업 `complete`도 확인했으며, 이후 Render 재시작 뒤 현재 health의 백업 상태는 `not_run`으로 보입니다.
 
@@ -38,8 +41,14 @@
 | 제조 질문·답변 및 LOT 그래프 | 위 로컬 화면 캡처 | CSV 임시자료 기반임을 캡션과 화면에 표시. Firestore 배포 증거로 사용하지 않음 |
 | Render/Vercel 배포·CORS·Firestore 읽기 | 위 실시간 상태 점검 링크 | 2026-10-26 Render health, CORS 브라우저 요청, Firestore 요약 조회 성공 확인 |
 | 데이터 추가·수정·삭제 | Vercel 관리 화면의 임시 Firestore 데이터 시연 | 아래 추가·수정·삭제 캡처. 종료 후 전체 1,086건/생산량 250건 복구 확인 |
-| Codyssey 채팅·대화 불러오기 | Render 채팅 응답과 저장 대화 상세 재조회 | 아래 캡처 및 대화 ID `c25dfa44-0d83-435f-8376-7ff17471541a`; `ai_provider=CODYSAY_CHAT_COMPLETIONS` |
+| Codyssey 채팅·대화 불러오기 | Vercel 배포 화면에서 저장 대화 재조회 | 최신 화면 캡처 및 기존 대화 재조회 캡처. 화면에 `Backend 연결 · firestore · 응답 방식 Codyssey AI 추가 분석` 표시 |
 | 좁은 화면 사용성 | 390×844 모바일 화면 확인 | 한 열 배치와 화면 폭 내 레이아웃 확인. 긴 공정 흐름·LOT 그래프는 각 영역 안에서 가로 스크롤 |
+
+### 2026-10-27 Codyssey 채팅 재조회
+
+대시보드에서 저장된 Codyssey 분석 대화를 다시 열었다. Firestore 요약(1,086건, 수량 기록 250건, 2026-08-11~2026-09-30, 평균 15,825.6 EA)과 AI 추가 분석 응답을 확인했다. 아래 캡처에 질문·요약·분석 답변과 `Backend 연결 · firestore · 응답 방식 Codyssey AI 추가 분석` 표시가 함께 보인다. 이 증빙은 Codyssey 제공자 호출이며 OpenAI/Anthropic 직접 호출 증빙과는 구분한다.
+
+![최신 배포 Codyssey AI 분석 응답 및 Firestore 요약](docs/screenshots/chat-firestore-codyssey-2026-10-27.png)
 
 ### 최신 배포 기능 증빙
 
