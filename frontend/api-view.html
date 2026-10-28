@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iMEB3 API 응답 상세</title>
+  <style>
+    :root{font-family:Inter,"Pretendard","Noto Sans KR",Arial,sans-serif;color:#15202b;background:#eef2f6}*{box-sizing:border-box}body{margin:0;padding:24px}.wrap{max-width:1000px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}h1{font-size:24px;margin:0}.sub{color:#627181;margin:7px 0 18px}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions a,.actions button{border:1px solid #d5dde5;background:white;color:#26384a;border-radius:9px;padding:9px 12px;text-decoration:none;font:600 13px inherit;cursor:pointer}.meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}.badge{padding:6px 10px;border-radius:99px;background:#e7f6ed;color:#176b43;font-size:12px;font-weight:700}.badge.bad{background:#fff0ed;color:#a53325}.url{font:12px Consolas,monospace;color:#536273;overflow-wrap:anywhere}.panel{background:#111923;border-radius:14px;padding:18px;overflow:auto;max-height:72vh;box-shadow:0 6px 20px #1b2a3a12}pre{margin:0;color:#e4edf5;font:13px/1.65 Consolas,"Cascadia Code",monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}.hint{font-size:12px;color:#718092;margin:12px 2px}@media(max-width:600px){body{padding:15px}h1{font-size:20px}.panel{padding:13px;max-height:68vh}pre{font-size:12px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="top"><div><h1 id="title">API 응답 상세</h1><p class="sub">응답을 보기 좋게 정리해 표시합니다.</p></div><div class="actions"><a href="./status.html">상태 점검으로</a><button id="refresh" type="button">새로고침</button></div></header>
+    <div class="meta"><span id="result" class="badge">불러오는 중…</span><span id="url" class="url"></span></div>
+    <section class="panel" aria-label="API JSON 응답"><pre id="body">응답을 불러오는 중입니다…</pre></section>
+    <p class="hint">이 화면은 배포된 API를 브라우저에서 다시 조회합니다. 조회 시각: <span id="time">-</span></p>
+  </main>
+  <script src="./config.js"></script>
+  <script>
+    (()=>{
+      const endpoints={health:{title:'Render health 응답',path:'/api/health'},summary:{title:'Firestore 요약 응답',path:'/api/data/summary'}};
+      const key=new URLSearchParams(location.search).get('endpoint')||'health';
+      const selected=endpoints[key]||endpoints.health;
+      const api=(window.API_BASE_URL||'https://imeb3-ai-agent-api.onrender.com').replace(/\/$/,'');
+      const url=api+selected.path;
+      document.title=selected.title+' | iMEB3';document.getElementById('title').textContent=selected.title;document.getElementById('url').textContent=url;
+      async function load(){
+        const result=document.getElementById('result'),body=document.getElementById('body');
+        result.textContent='불러오는 중…';result.className='badge';body.textContent='응답을 불러오는 중입니다…';
+        try{
+          const response=await fetch(url+'?pretty='+Date.now(),{cache:'no-store'});
+          const raw=await response.text();let parsed;
+          try{parsed=JSON.parse(raw);body.textContent=JSON.stringify(parsed,null,2)}catch{body.textContent=raw||'(빈 응답)'}
+          result.textContent='HTTP '+response.status+(response.ok?' · 성공':' · 오류');result.className='badge'+(response.ok?'':' bad');
+        }catch(error){result.textContent='연결 실패';result.className='badge bad';body.textContent=String(error)+'\n\n브라우저 CORS 설정 또는 API 연결 상태를 확인하세요.'}
+        document.getElementById('time').textContent=new Date().toLocaleString('ko-KR');
+      }
+      document.getElementById('refresh').addEventListener('click',load);load();
+    })();
+  </script>
+</body>
+</html>
