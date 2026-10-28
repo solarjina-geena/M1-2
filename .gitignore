@@ -59,6 +59,10 @@ secrets/
 # Private evidence datasets (keep documentation only)
 evidence/*
 !evidence/**/README*.md
+# User-approved de-identified job-log examples shown in the assignment report
+!evidence/사출작업일보_예시.jpg
+!evidence/조립작업일보_예시.jpg
+!evidence/최종작업일보_예시.jpg
 
 # Generated local frontend API configuration
 frontend/config.js
